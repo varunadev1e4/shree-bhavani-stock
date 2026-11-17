@@ -53,17 +53,17 @@ function Home({ go }) {
         supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1),
       ])
       const live = pr.filter((p) => !p.deleted)
-      const cust = live.filter((p) => p.group_id === 3).map((p) => ({ ...p, owed: Number(p.cur_bal) })).filter((p) => p.owed > 0.5).sort((a, b) => b.owed - a.owed)
-      const sup = live.filter((p) => p.group_id === 2).reduce((s, p) => s + Math.max(-Number(p.cur_bal), 0), 0)
+      const cust = live.map((p) => ({ ...p, owed: Number(p.cur_bal) })).filter((p) => p.owed > 0.5).sort((a, b) => b.owed - a.owed)
+      const sup = live.reduce((s, p) => s + Math.max(-Number(p.cur_bal), 0), 0)
       const inStock = st.filter((p) => Number(p.total_qty) > 0)
-      setD({ recv: cust.reduce((s, p) => s + p.owed, 0), nCust: cust.length, pay: sup, items: inStock.length,
+      setD({ recv: cust.reduce((s, p) => s + p.owed, 0), nCust: cust.length, pay: sup, nPay: live.filter((p) => Number(p.cur_bal) < -0.5).length, items: inStock.length,
         soon: inStock.filter((p) => expState(p.nearest_expiry)).length, top: cust.slice(0, 5), sync: lg.data && lg.data[0] })
     } catch (e) { setErr(e.message) }
   }, [])
   useEffect(() => { load() }, [load])
   const h = new Date().getHours()
   const sync = backupAge(d && d.sync)
-  const K = d && [['k1', 'To receive', rs(d.recv), d.nCust + ' customers', 'parties'], ['k2', 'To pay', rs(d.pay), 'suppliers', 'parties'],
+  const K = d && [['k1', 'To receive', rs(d.recv), d.nCust + ' parties', 'parties'], ['k2', 'To pay', rs(d.pay), d.nPay + ' parties', 'parties'],
     ['k3', 'Items in stock', num(d.items), 'tap to browse', 'stock'], ['k4', 'Expiring soon', num(d.soon), 'within 3 months', 'expiry']]
   return (
     <div className="app">

@@ -9,8 +9,8 @@ export default function Parties() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [q, setQ] = useState('')
-  const [type, setType] = useState(3)
-  const [onlyDue, setOnlyDue] = useState(true)
+  const [side, setSide] = useState('recv')
+  const [showAll, setShowAll] = useState(false)
   const [sort, setSort] = useState('bal')
   const [open, setOpen] = useState(null)
 
@@ -24,45 +24,52 @@ export default function Parties() {
   }, [])
   useEffect(() => { load() }, [load])
 
-  const owed = (p) => { const dr = DR_POSITIVE ? Number(p.cur_bal) : -Number(p.cur_bal); return type === 3 ? dr : -dr }
+  // Positive = the party owes us. Negative = we owe the party. Works for any party, whatever its group.
+  const bal = (p) => (DR_POSITIVE ? Number(p.cur_bal) : -Number(p.cur_bal))
+  const owed = (p) => (side === 'recv' ? bal(p) : -bal(p))
+
+  const sums = useMemo(() => {
+    const s = { r: 0, a: 0, nr: 0, na: 0 }
+    rows.forEach((p) => { const b = bal(p); if (b > 0.5) { s.r += b; s.nr++ } else if (b < -0.5) { s.a -= b; s.na++ } })
+    return s
+  }, [rows])
+
   const list = useMemo(() => {
     const w = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    const l = rows.filter((p) => p.group_id === type && w.every((x) => p._s.includes(x)) && (!onlyDue || owed(p) > 0.5))
+    const l = rows.filter((p) => w.every((x) => p._s.includes(x)) && (showAll || owed(p) > 0.5))
     return l.sort(sort === 'bal' ? (a, b) => owed(b) - owed(a) : (a, b) => a.name.localeCompare(b.name))
-  }, [rows, q, type, onlyDue, sort])
-  const total = list.reduce((s, p) => s + Math.max(owed(p), 0), 0)
+  }, [rows, q, side, showAll, sort])
 
   return (
     <div className="app">
-      <header className="top"><strong className="title">Parties</strong>
-        <button className="icon" onClick={load} aria-label="Refresh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg></button>
+      <header className="top"><h1 className="h1">Parties</h1>
+        <div className="actions"><button className="icon" onClick={load} aria-label="Refresh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg></button></div>
       </header>
-      <div className="stats two">
-        <button className={'stat' + (type === 3 ? ' on' : '')} onClick={() => setType(3)}><b>Customers</b><span>to receive</span></button>
-        <button className={'stat' + (type === 2 ? ' on' : '')} onClick={() => setType(2)}><b>Suppliers</b><span>to pay</span></button>
+      <div className="stats">
+        <button className={'stat' + (side === 'recv' ? ' on' : '')} onClick={() => setSide('recv')}><span>To receive</span><b>{rs(sums.r)}</b><span>{sums.nr} parties</span></button>
+        <button className={'stat' + (side === 'pay' ? ' on' : '')} onClick={() => setSide('pay')}><span>To pay</span><b>{rs(sums.a)}</b><span>{sums.na} parties</span></button>
       </div>
-      <div className="total"><span>{type === 3 ? 'Total to receive' : 'Total to pay'}</span><b>{rs(total)}</b><span>{list.length} parties</span></div>
       <div className="searchbox sp"><input type="search" placeholder="Search name, code or city" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="filters">
-        <button className={'toggle' + (onlyDue ? ' on' : '')} onClick={() => setOnlyDue(!onlyDue)}>Only with balance</button>
+        <button className={'toggle' + (showAll ? ' on' : '')} onClick={() => setShowAll(!showAll)}>Show all parties</button>
         <select value={sort} onChange={(e) => setSort(e.target.value)}><option value="bal">Highest balance first</option><option value="name">A to Z</option></select>
       </div>
       {error && <p className="error pad">{error}</p>}
       {loading && <p className="muted pad">Loading...</p>}
       {!loading && !list.length && <div className="empty"><b>No parties found</b></div>}
-      <ul className="list">
+      <ul className="list" style={{ marginTop: 12 }}>
         {list.map((p) => {
           const amt = owed(p), ph = p.phone || p.phone2
           return (
             <li key={p.id} className="card">
               <button className="row" onClick={() => setOpen(open === p.id ? null : p.id)}>
                 <div className="info"><div className="name">{p.name}</div><div className="meta"><span>{[p.city, p.code].filter(Boolean).join(' · ')}</span></div></div>
-                <div className={'amt' + (amt > 0.5 ? ' due' : '')}>{amt < -0.5 ? rs(-amt) + ' adv' : rs(amt)}</div>
+                <div className={'amt' + (amt > 0.5 ? (side === 'recv' ? ' due' : '') : '')}>{amt < -0.5 ? rs(-amt) + (side === 'recv' ? ' payable' : ' receivable') : rs(amt)}</div>
               </button>
               {open === p.id && (
                 <div className="batches btnrow">
                   {ph ? <a className="ghost" href={'tel:' + ph.replace(/\D/g, '')}>Call {ph}</a> : <span className="muted">No phone saved</span>}
-                  {ph && type === 3 && amt > 0.5 && (
+                  {ph && side === 'recv' && amt > 0.5 && (
                     <a className="ghost" target="_blank" rel="noreferrer"
                       href={waLink(ph, 'Dear ' + p.name + ', this is a gentle reminder from Shree Bhavani Medical Distribution Agency. Your outstanding balance is ' + rs(amt) + '. Kindly arrange the payment. Thank you.')}>WhatsApp reminder</a>
                   )}
