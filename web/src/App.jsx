@@ -2,23 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import Expiry from './Expiry'
 import Parties from './Parties'
-import { num, fmtExp, expState, fetchAll, hue, ini } from './util'
+import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge } from './util'
 
 const SORTS = { name: 'A to Z', qtyDesc: 'Stock: high to low', qtyAsc: 'Stock: low to high', expiry: 'Expiry: soonest' }
 const PAGE = 40
-const I = (d) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+const I = (d) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 const ICONS = {
+  home: I(<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />),
   stock: I(<path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />),
   expiry: I(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
   parties: I(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .6 3.3 2.3 3.7 5.2" /></>),
 }
-
-function ago(ts) {
-  if (!ts) return { text: 'Not synced yet', cls: 'bad' }
-  const m = Math.round((Date.now() - new Date(ts)) / 60000)
-  const t = m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'
-  return { text: 'Synced ' + t, cls: m < 120 ? 'good' : m < 1440 ? 'warn' : 'bad' }
-}
+const Refresh = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg>
+const Out = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -33,9 +29,7 @@ function Login() {
   }
   return (
     <div className="loginwrap"><div className="login">
-      <div className="logo">SB</div>
-      <h1>Shree Bhavani</h1>
-      <p className="muted">Medical Distribution Agency</p>
+      <div className="logo">SB</div><h1>Shree Bhavani</h1><p className="muted">Medical Distribution Agency</p>
       <form onSubmit={submit}>
         <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -46,13 +40,65 @@ function Login() {
   )
 }
 
+function Home({ go }) {
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const load = useCallback(async () => {
+    try {
+      const [pr, st, lg] = await Promise.all([
+        fetchAll('parties', 'id,name,city,phone,phone2,cur_bal,group_id,deleted'),
+        fetchAll('stock_summary', 'id,total_qty,nearest_expiry'),
+        supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1),
+      ])
+      const live = pr.filter((p) => !p.deleted)
+      const cust = live.filter((p) => p.group_id === 3).map((p) => ({ ...p, owed: Number(p.cur_bal) })).filter((p) => p.owed > 0.5).sort((a, b) => b.owed - a.owed)
+      const sup = live.filter((p) => p.group_id === 2).reduce((s, p) => s + Math.max(-Number(p.cur_bal), 0), 0)
+      const inStock = st.filter((p) => Number(p.total_qty) > 0)
+      setD({ recv: cust.reduce((s, p) => s + p.owed, 0), nCust: cust.length, pay: sup, items: inStock.length,
+        soon: inStock.filter((p) => expState(p.nearest_expiry)).length, top: cust.slice(0, 5), sync: lg.data && lg.data[0] })
+    } catch (e) { setErr(e.message) }
+  }, [])
+  useEffect(() => { load() }, [load])
+  const h = new Date().getHours()
+  const sync = backupAge(d && d.sync)
+  const K = d && [['k1', 'To receive', rs(d.recv), d.nCust + ' customers', 'parties'], ['k2', 'To pay', rs(d.pay), 'suppliers', 'parties'],
+    ['k3', 'Items in stock', num(d.items), 'tap to browse', 'stock'], ['k4', 'Expiring soon', num(d.soon), 'within 3 months', 'expiry']]
+  return (
+    <div className="app">
+      <header className="top">
+        <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">Shree Bhavani</h1>
+          {d && <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>}</div>
+        <div className="actions"><button className="icon" onClick={load} aria-label="Refresh">{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
+      </header>
+      {err && <p className="error pad">{err}</p>}
+      <section className="kpis">
+        {K ? K.map(([c, l, v, s, t]) => <button key={l} className={'kpi ' + c} onClick={() => go(t)}><span>{l}</span><b>{v}</b><small>{s}</small></button>)
+          : [0, 1, 2, 3].map((i) => <div key={i} className="kpi sk" />)}
+      </section>
+      {d && d.top.length > 0 && (
+        <section><h2 className="h2">Highest dues</h2>
+          <ul className="list">{d.top.map((p) => (
+            <li key={p.id} className="card"><div className="row static">
+              <div className="av" style={{ '--h': hue(p.name) }}>{ini(p.name)}</div>
+              <div className="info"><div className="name">{p.name}</div><div className="meta"><span>{p.city}</span></div></div>
+              <div className="amt due">{rs(p.owed)}</div>
+              {(p.phone || p.phone2) && <a className="call" href={'tel:' + (p.phone || p.phone2).replace(/\D/g, '')} aria-label="Call">{I(<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" />)}</a>}
+            </div></li>))}</ul>
+          <button className="more" onClick={() => go('parties')}>See all parties</button>
+        </section>
+      )}
+    </div>
+  )
+}
+
 function Batches({ p }) {
   const [rows, setRows] = useState(null)
   useEffect(() => {
     supabase.from('batches').select('id,batch_no,exp_month,exp_year,qty,mrp,bill_price')
-      .eq('product_id', p.id).gt('qty', 0).order('exp_year').order('exp_month')
-      .then(({ data }) => setRows(data || []))
+      .eq('product_id', p.id).gt('qty', 0).order('exp_year').order('exp_month').then(({ data }) => setRows(data || []))
   }, [p.id])
+  const gst = Number(p.gst) || 0
+  const ex = (v) => (v == null ? '-' : num(Number(v) / (1 + gst / 100)))
   if (!rows) return <div className="batches"><div className="sk line" /></div>
   if (!rows.length) return <p className="muted pad">No stock.</p>
   const share = () => {
@@ -62,14 +108,11 @@ function Batches({ p }) {
   return (
     <div className="batches">
       <table>
-        <thead><tr><th>Batch</th><th>Expiry</th><th>Qty</th><th>MRP</th><th>Rate</th></tr></thead>
-        <tbody>
-          {rows.map((b) => {
-            const k = b.exp_year * 100 + b.exp_month
-            return <tr key={b.id}><td>{b.batch_no}</td><td><span className={'pill ' + expState(k)}>{fmtExp(k)}</span></td><td><b>{num(b.qty)}</b></td><td>{num(b.mrp)}</td><td>{num(b.bill_price)}</td></tr>
-          })}
-        </tbody>
+        <thead><tr><th>Batch</th><th>Expiry</th><th>Qty</th><th>MRP</th><th>Rate</th><th>GST</th></tr></thead>
+        <tbody>{rows.map((b) => { const k = b.exp_year * 100 + b.exp_month
+          return <tr key={b.id}><td>{b.batch_no}</td><td><span className={'pill ' + expState(k)}>{fmtExp(k)}</span></td><td><b>{num(b.qty)}</b></td><td>{num(b.mrp)}</td><td>{ex(b.bill_price)}</td><td>{gst}%</td></tr> })}</tbody>
       </table>
+      <p className="muted small">Rate is before GST.</p>
       <button className="ghost" onClick={share}>Share on WhatsApp</button>
     </div>
   )
@@ -77,29 +120,22 @@ function Batches({ p }) {
 
 function Card({ p, open, onToggle }) {
   const q = Number(p.total_qty)
-  const st = q > 0 ? expState(p.nearest_expiry) : ''
+  const e = q > 0 ? expState(p.nearest_expiry) : ''
+  const s = q <= 0 ? 'zero' : e === 'expired' ? 'expired' : e === 'soon' ? 'soon' : 'ok'
   return (
-    <li className={'card' + (open ? ' open' : '')}>
+    <li className={'card s-' + s + (open ? ' open' : '')}>
       <button className="row" onClick={onToggle}>
-        <div className="av" style={{ '--h': hue(p.company || p.name) }}>{ini(p.name)}</div>
         <div className="info">
           <div className="name">{p.name}</div>
-          <div className="meta">
-            {p.packing && <span>{p.packing}</span>}
-            {p.rack_no && <span>Rack {p.rack_no}</span>}
-            {q > 0 && p.nearest_expiry && <span className={'pill ' + st}>Exp {fmtExp(p.nearest_expiry)}</span>}
-          </div>
+          <div className="meta">{[p.packing, p.rack_no && 'Rack ' + p.rack_no].filter(Boolean).map((t) => <span key={t}>{t}</span>)}
+            {q > 0 && p.nearest_expiry && <span className={'pill ' + e}>Exp {fmtExp(p.nearest_expiry)}</span>}</div>
           {p.company && <div className="comp">{p.company}</div>}
         </div>
-        <div className={'qty' + (q <= 0 ? ' zero' : '')}><b>{num(q)}</b><small>units</small></div>
+        <div className="qty"><b>{num(q)}</b><small>{q <= 0 ? 'out' : 'units'}</small></div>
       </button>
       {open && <Batches p={p} />}
     </li>
   )
-}
-
-function Skeleton() {
-  return <ul className="list">{[0, 1, 2, 3, 4, 5].map((i) => <li key={i} className="card"><div className="row"><div className="sk av" /><div className="info"><div className="sk line" /><div className="sk line s" /></div><div className="sk qtybox" /></div></li>)}</ul>
 }
 
 function Stock() {
@@ -120,8 +156,8 @@ function Stock() {
     try {
       const d = await fetchAll('stock_summary', '*')
       setAll(d.map((p) => ({ ...p, _s: [p.name, p.code, p.company].filter(Boolean).join(' ').toLowerCase() })))
-      const { data } = await supabase.from('sync_log').select('ran_at').order('ran_at', { ascending: false }).limit(1)
-      setSynced(data && data[0] ? data[0].ran_at : null)
+      const { data } = await supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1)
+      setSynced(data && data[0])
     } catch (e) { setError(e.message) }
     setLoading(false)
   }, [])
@@ -166,43 +202,27 @@ function Stock() {
 
   const sorted = useMemo(() => {
     const list = company ? base.filter((p) => (p.company || 'Other') === company) : base.slice()
-    const by = {
-      name: (a, b) => a.name.localeCompare(b.name),
-      qtyDesc: (a, b) => b.total_qty - a.total_qty,
-      qtyAsc: (a, b) => a.total_qty - b.total_qty,
-      expiry: (a, b) => (a.nearest_expiry || 999999) - (b.nearest_expiry || 999999),
-    }
+    const by = { name: (a, b) => a.name.localeCompare(b.name), qtyDesc: (a, b) => b.total_qty - a.total_qty,
+      qtyAsc: (a, b) => a.total_qty - b.total_qty, expiry: (a, b) => (a.nearest_expiry || 999999) - (b.nearest_expiry || 999999) }
     return list.sort(by[sort])
   }, [base, company, sort])
 
-  const sync = ago(synced)
-  const STATS = [['instock', 'In stock', stats.instock, ''], ['soon', 'Expiring', stats.soon, 'warn'], ['expired', 'Expired', stats.expired, 'bad'], ['out', 'Out', stats.out, 'mute']]
+  const sync = backupAge(synced)
+  const QC = [['instock', 'In stock', stats.instock, ''], ['soon', 'Expiring', stats.soon, 'warn'], ['expired', 'Expired', stats.expired, 'bad'], ['out', 'Out of stock', stats.out, '']]
 
   return (
     <div className="app">
-      <header className="hero">
-        <div className="herotop">
-          <div className="brand"><div className="logo sm">SB</div><div><strong>Shree Bhavani</strong><span>Medical Distribution</span></div></div>
-          <div className="actions">
-            <button className="icon" onClick={refresh} aria-label="Refresh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg></button>
-            <button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg></button>
-          </div>
-        </div>
-        <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>
+      <header className="top">
+        <div><h1 className="h1">Stock</h1><div className={'syncpill ' + sync.cls}><i />{sync.text}</div></div>
+        <div className="actions"><button className="icon" onClick={refresh} aria-label="Refresh">{Refresh}</button></div>
       </header>
-
-      <section className="stats up">
-        {STATS.map(([k, label, n, tone]) => (
-          <button key={k} className={'stat ' + tone + (quick === k ? ' on' : '')} onClick={() => setQuick(k)}><b>{n}</b><span>{label}</span></button>
-        ))}
-      </section>
-
       <div className="tools">
         <div className="searchbox">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
           <input type="search" placeholder="Search medicine, code or company" value={q} onChange={(e) => setQ(e.target.value)} />
           {q && <button className="clear" onClick={() => setQ('')} aria-label="Clear">x</button>}
         </div>
+        <div className="qchips">{QC.map(([k, l, n, t]) => <button key={k} className={'qc ' + t + (quick === k ? ' on' : '')} onClick={() => setQuick(k)}>{l}<b>{n}</b></button>)}</div>
         <div className="filters">
           <div className="seg">
             <button className={view === 'items' ? 'on' : ''} onClick={() => setView('items')}>Items</button>
@@ -212,32 +232,25 @@ function Stock() {
           {view === 'items' && company && <button className="chip" onClick={() => setCompany('')}>{company} &nbsp;x</button>}
         </div>
       </div>
-
       {error && <p className="error pad">{error}</p>}
-      {loading && <Skeleton />}
+      {loading && <ul className="list">{[0, 1, 2, 3, 4].map((i) => <li key={i} className="card"><div className="row"><div className="info"><div className="sk line" /><div className="sk line s" /></div><div className="sk qtybox" /></div></li>)}</ul>}
       {!loading && !error && view === 'companies' && (
         <>
           <p className="count muted">{cstats.length} companies</p>
-          <div className="tiles">
-            {cstats.map(([c, s]) => (
-              <button key={c} className="tile" style={{ '--h': hue(c) }} onClick={() => { setCompany(c); setView('items') }}>
-                <div className="av lg">{ini(c)}</div>
-                <div className="tname">{c}</div>
-                <div className="tmeta">{s.items} items · {num(s.units)} units</div>
-                {s.soon > 0 && <span className="pill soon">{s.soon} expiring</span>}
-              </button>
-            ))}
-          </div>
-          {!cstats.length && <div className="empty"><b>No companies found</b><span>Try a different search or filter.</span></div>}
+          <div className="tiles">{cstats.map(([c, s]) => (
+            <button key={c} className="tile" style={{ '--h': hue(c) }} onClick={() => { setCompany(c); setView('items') }}>
+              <div className="av lg">{ini(c)}</div><div className="tname">{c}</div>
+              <div className="tmeta">{s.items} items · {num(s.units)} units</div>
+              {s.soon > 0 && <span className="pill soon">{s.soon} expiring</span>}
+            </button>))}</div>
+          {!cstats.length && <div className="empty"><b>No companies found</b></div>}
         </>
       )}
       {!loading && !error && view === 'items' && (
         <>
           <p className="count muted">{sorted.length} item{sorted.length === 1 ? '' : 's'}</p>
           {!sorted.length && <div className="empty"><b>No items found</b><span>Try a different search or filter.</span></div>}
-          <ul className="list">
-            {sorted.slice(0, limit).map((p) => <Card key={p.id} p={p} open={open === p.id} onToggle={() => setOpen(open === p.id ? null : p.id)} />)}
-          </ul>
+          <ul className="list">{sorted.slice(0, limit).map((p) => <Card key={p.id} p={p} open={open === p.id} onToggle={() => setOpen(open === p.id ? null : p.id)} />)}</ul>
           {sorted.length > limit && <button className="more" onClick={() => setLimit(limit + PAGE)}>Show more ({sorted.length - limit} left)</button>}
         </>
       )}
@@ -246,16 +259,17 @@ function Stock() {
 }
 
 function Shell() {
-  const [tab, setTab] = useState('stock')
-  const [seen, setSeen] = useState({ stock: true })
+  const [tab, setTab] = useState('home')
+  const [seen, setSeen] = useState({ home: true })
   const go = (t) => { setTab(t); setSeen((s) => ({ ...s, [t]: true })); window.scrollTo(0, 0) }
   return (
     <>
-      <div hidden={tab !== 'stock'}><Stock /></div>
+      <div hidden={tab !== 'home'}><Home go={go} /></div>
+      {seen.stock && <div hidden={tab !== 'stock'}><Stock /></div>}
       {seen.expiry && <div hidden={tab !== 'expiry'}><Expiry /></div>}
       {seen.parties && <div hidden={tab !== 'parties'}><Parties /></div>}
       <nav className="tabs">
-        {[['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties']].map(([k, l]) => (
+        {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
         ))}
       </nav>

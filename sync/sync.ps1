@@ -91,8 +91,26 @@ try {
   $batches = Map-Rows (Get-Rows "SELECT RndId, ProdId, BatchNo, ExpMonth, ExpYear, Qty, Mrp, BillPrice FROM Batch WHERE Qty > 0") ([ordered]@{
     RndId = "id"; ProdId = "product_id"; BatchNo = "batch_no"; ExpMonth = "exp_month"; ExpYear = "exp_year"; Qty = "qty"; Mrp = "mrp"; BillPrice = "bill_price" }) $syncId
 
-  $parties = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], City, Cell, Phone, CurBal, SubGroupId, Deleted FROM Accounts WHERE SubGroupId IN (2,3)") ([ordered]@{
-    RndId = "id"; Code = "code"; Name = "name"; City = "city"; Cell = "phone"; Phone = "phone2"; CurBal = "cur_bal"; SubGroupId = "group_id"; Deleted = "deleted" }) $syncId
+  $parties = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], City, Cell, Phone, OpBal, SubGroupId, Deleted FROM Accounts WHERE SubGroupId IN (2,3)") ([ordered]@{
+    RndId = "id"; Code = "code"; Name = "name"; City = "city"; Cell = "phone"; Phone = "phone2"; OpBal = "cur_bal"; SubGroupId = "group_id"; Deleted = "deleted" }) $syncId
+  # Balance (debit positive) = opening balance + sales + payments made - receipts - sale returns - purchases
+  $mv = @{}
+  foreach ($r in (Get-Rows "SELECT AccId, TranType, SUM(NetAmt) AS amt FROM AccHead GROUP BY AccId, TranType").Rows) {
+    if ($r["amt"] -is [DBNull]) { continue }
+    $k = [string]$r["AccId"]
+    if (-not $mv.ContainsKey($k)) { $mv[$k] = @{} }
+    $mv[$k][([string]$r["TranType"]).Trim()] = [double]$r["amt"]
+  }
+  $debit = @("S", "PA", "PR"); $credit = @("RS", "SR", "P")
+  foreach ($p in $parties) {
+    $bal = [double]$p["cur_bal"]
+    $v = $mv[[string]$p["id"]]
+    if ($v) {
+      foreach ($t in $debit) { if ($v.ContainsKey($t)) { $bal += $v[$t] } }
+      foreach ($t in $credit) { if ($v.ContainsKey($t)) { $bal -= $v[$t] } }
+    }
+    $p["cur_bal"] = [Math]::Round($bal, 2)
+  }
   Log ("Read {0} companies, {1} products, {2} batches with stock, {3} parties" -f $companies.Count, $products.Count, $batches.Count, $parties.Count)
   if ($products.Count -lt 1) { throw "No products read - stopping so Supabase data is not wiped." }
 

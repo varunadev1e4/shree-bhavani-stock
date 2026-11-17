@@ -27,3 +27,12 @@ export async function fetchAll(table, cols, filter) {
 
 export const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h }
 export const ini = (s) => String(s).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'
+
+export function backupAge(row) {
+  if (!row) return { text: 'No data yet', cls: 'bad' }
+  const m = /_(\d{2})(\d{2})(\d{4})_(\d{2})(\d{2})(\d{2})/.exec(row.source || '')
+  const d = m ? new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6]) : new Date(row.ran_at)
+  const h = (Date.now() - d) / 36e5
+  const t = d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+  return { text: 'Data as of ' + t, cls: h <= 26 ? 'good' : h <= 50 ? 'warn' : 'bad' }
+}
