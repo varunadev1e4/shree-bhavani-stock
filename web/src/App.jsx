@@ -48,15 +48,15 @@ function Home({ go }) {
   const load = useCallback(async () => {
     try {
       const [pr, st, lg] = await Promise.all([
-        fetchAll('parties', 'id,name,city,phone,phone2,cur_bal,group_id,deleted'),
+        fetchAll('parties', 'id,name,city,phone,phone2,receivable,payable,deleted'),
         fetchAll('stock_summary', 'id,total_qty,nearest_expiry'),
         supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1),
       ])
       const live = pr.filter((p) => !p.deleted)
-      const cust = live.map((p) => ({ ...p, owed: Number(p.cur_bal) })).filter((p) => p.owed > 0.5).sort((a, b) => b.owed - a.owed)
-      const sup = live.reduce((s, p) => s + Math.max(-Number(p.cur_bal), 0), 0)
+      const cust = live.map((p) => ({ ...p, owed: Number(p.receivable) || 0 })).filter((p) => p.owed > 0.5).sort((a, b) => b.owed - a.owed)
+      const sup = live.reduce((s, p) => s + Math.max(Number(p.payable) || 0, 0), 0)
       const inStock = st.filter((p) => Number(p.total_qty) > 0)
-      setD({ recv: cust.reduce((s, p) => s + p.owed, 0), nCust: cust.length, pay: sup, nPay: live.filter((p) => Number(p.cur_bal) < -0.5).length, items: inStock.length,
+      setD({ recv: cust.reduce((s, p) => s + p.owed, 0), nCust: cust.length, pay: sup, nPay: live.filter((p) => Number(p.payable) > 0.5).length, items: inStock.length,
         soon: inStock.filter((p) => expState(p.nearest_expiry)).length, top: cust.slice(0, 5), sync: lg.data && lg.data[0] })
     } catch (e) { setErr(e.message) }
   }, [])
