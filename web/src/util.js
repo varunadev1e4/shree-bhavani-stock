@@ -24,3 +24,6 @@ export async function fetchAll(table, cols, filter) {
   }
   return all
 }
+
+export const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h }
+export const ini = (s) => String(s).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'

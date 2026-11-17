@@ -2,31 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import Expiry from './Expiry'
 import Parties from './Parties'
+import { num, fmtExp, expState, fetchAll, hue, ini } from './util'
 
-const num = (v) => (v == null ? '-' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 }))
-const fmtExp = (k) => (k ? String(k % 100).padStart(2, '0') + '/' + Math.floor(k / 100) : '-')
-const mk = (off = 0) => { const d = new Date(); d.setMonth(d.getMonth() + off); return d.getFullYear() * 100 + d.getMonth() + 1 }
-const expState = (k) => (!k ? '' : k < mk(0) ? 'expired' : k <= mk(3) ? 'soon' : '')
 const SORTS = { name: 'A to Z', qtyDesc: 'Stock: high to low', qtyAsc: 'Stock: low to high', expiry: 'Expiry: soonest' }
 const PAGE = 40
+const I = (d) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+const ICONS = {
+  stock: I(<path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />),
+  expiry: I(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
+  parties: I(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .6 3.3 2.3 3.7 5.2" /></>),
+}
 
 function ago(ts) {
   if (!ts) return { text: 'Not synced yet', cls: 'bad' }
   const m = Math.round((Date.now() - new Date(ts)) / 60000)
-  const text = m < 1 ? 'Just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'
-  return { text: 'Synced ' + text, cls: m < 120 ? 'good' : m < 1440 ? 'warn' : 'bad' }
-}
-
-async function loadAll() {
-  let all = [], from = 0
-  for (;;) {
-    const { data, error } = await supabase.from('stock_summary').select('*').order('name').range(from, from + 999)
-    if (error) throw error
-    all = all.concat(data)
-    if (data.length < 1000) break
-    from += 1000
-  }
-  return all.map((p) => ({ ...p, _s: [p.name, p.code, p.company].filter(Boolean).join(' ').toLowerCase() }))
+  const t = m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'
+  return { text: 'Synced ' + t, cls: m < 120 ? 'good' : m < 1440 ? 'warn' : 'bad' }
 }
 
 function Login() {
@@ -41,7 +32,7 @@ function Login() {
     setBusy(false)
   }
   return (
-    <div className="login">
+    <div className="loginwrap"><div className="login">
       <div className="logo">SB</div>
       <h1>Shree Bhavani</h1>
       <p className="muted">Medical Distribution Agency</p>
@@ -51,7 +42,7 @@ function Login() {
         <button className="primary" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
         {err && <p className="error">{err}</p>}
       </form>
-    </div>
+    </div></div>
   )
 }
 
@@ -62,12 +53,11 @@ function Batches({ p }) {
       .eq('product_id', p.id).gt('qty', 0).order('exp_year').order('exp_month')
       .then(({ data }) => setRows(data || []))
   }, [p.id])
-  if (!rows) return <p className="muted pad">Loading batches...</p>
+  if (!rows) return <div className="batches"><div className="sk line" /></div>
   if (!rows.length) return <p className="muted pad">No stock.</p>
   const share = () => {
     const lines = rows.map((b) => 'Batch ' + b.batch_no + ' | Exp ' + fmtExp(b.exp_year * 100 + b.exp_month) + ' | Qty ' + num(b.qty) + ' | MRP ' + num(b.mrp))
-    const text = p.name + (p.packing ? ' (' + p.packing + ')' : '') + '\n' + lines.join('\n')
-    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank')
+    window.open('https://wa.me/?text=' + encodeURIComponent(p.name + (p.packing ? ' (' + p.packing + ')' : '') + '\n' + lines.join('\n')), '_blank')
   }
   return (
     <div className="batches">
@@ -76,13 +66,7 @@ function Batches({ p }) {
         <tbody>
           {rows.map((b) => {
             const k = b.exp_year * 100 + b.exp_month
-            return (
-              <tr key={b.id}>
-                <td>{b.batch_no}</td>
-                <td><span className={'pill ' + expState(k)}>{fmtExp(k)}</span></td>
-                <td><b>{num(b.qty)}</b></td><td>{num(b.mrp)}</td><td>{num(b.bill_price)}</td>
-              </tr>
-            )
+            return <tr key={b.id}><td>{b.batch_no}</td><td><span className={'pill ' + expState(k)}>{fmtExp(k)}</span></td><td><b>{num(b.qty)}</b></td><td>{num(b.mrp)}</td><td>{num(b.bill_price)}</td></tr>
           })}
         </tbody>
       </table>
@@ -91,27 +75,31 @@ function Batches({ p }) {
   )
 }
 
-function Card({ p, open, onToggle, showCompany }) {
+function Card({ p, open, onToggle }) {
   const q = Number(p.total_qty)
   const st = q > 0 ? expState(p.nearest_expiry) : ''
   return (
     <li className={'card' + (open ? ' open' : '')}>
       <button className="row" onClick={onToggle}>
+        <div className="av" style={{ '--h': hue(p.company || p.name) }}>{ini(p.name)}</div>
         <div className="info">
           <div className="name">{p.name}</div>
           <div className="meta">
             {p.packing && <span>{p.packing}</span>}
             {p.rack_no && <span>Rack {p.rack_no}</span>}
-            {showCompany && p.company && <span>{p.company}</span>}
             {q > 0 && p.nearest_expiry && <span className={'pill ' + st}>Exp {fmtExp(p.nearest_expiry)}</span>}
           </div>
+          {p.company && <div className="comp">{p.company}</div>}
         </div>
         <div className={'qty' + (q <= 0 ? ' zero' : '')}><b>{num(q)}</b><small>units</small></div>
-        <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>
       </button>
       {open && <Batches p={p} />}
     </li>
   )
+}
+
+function Skeleton() {
+  return <ul className="list">{[0, 1, 2, 3, 4, 5].map((i) => <li key={i} className="card"><div className="row"><div className="sk av" /><div className="info"><div className="sk line" /><div className="sk line s" /></div><div className="sk qtybox" /></div></li>)}</ul>
 }
 
 function Stock() {
@@ -121,24 +109,24 @@ function Stock() {
   const [synced, setSynced] = useState(null)
   const [q, setQ] = useState('')
   const [quick, setQuick] = useState('instock')
+  const [view, setView] = useState('items')
   const [company, setCompany] = useState('')
   const [sort, setSort] = useState('name')
-  const [group, setGroup] = useState(false)
   const [open, setOpen] = useState(null)
   const [limit, setLimit] = useState(PAGE)
-  const [expanded, setExpanded] = useState(new Set())
 
   const refresh = useCallback(async () => {
     setLoading(true); setError('')
     try {
-      setAll(await loadAll())
+      const d = await fetchAll('stock_summary', '*')
+      setAll(d.map((p) => ({ ...p, _s: [p.name, p.code, p.company].filter(Boolean).join(' ').toLowerCase() })))
       const { data } = await supabase.from('sync_log').select('ran_at').order('ran_at', { ascending: false }).limit(1)
       setSynced(data && data[0] ? data[0].ran_at : null)
     } catch (e) { setError(e.message) }
     setLoading(false)
   }, [])
   useEffect(() => { refresh() }, [refresh])
-  useEffect(() => { setLimit(PAGE) }, [q, quick, company, sort, group])
+  useEffect(() => { setLimit(PAGE) }, [q, quick, company, sort, view])
 
   const stats = useMemo(() => {
     const s = { instock: 0, soon: 0, expired: 0, out: 0 }
@@ -164,9 +152,15 @@ function Stock() {
     })
   }, [all, q, quick])
 
-  const companies = useMemo(() => {
+  const cstats = useMemo(() => {
     const m = new Map()
-    base.forEach((p) => { const c = p.company || 'Other'; m.set(c, (m.get(c) || 0) + 1) })
+    base.forEach((p) => {
+      const c = p.company || 'Other'
+      const s = m.get(c) || { items: 0, units: 0, soon: 0 }
+      s.items++; s.units += Number(p.total_qty)
+      if (Number(p.total_qty) > 0 && expState(p.nearest_expiry)) s.soon++
+      m.set(c, s)
+    })
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [base])
 
@@ -181,38 +175,25 @@ function Stock() {
     return list.sort(by[sort])
   }, [base, company, sort])
 
-  const groups = useMemo(() => {
-    if (!group) return []
-    const m = new Map()
-    sorted.forEach((p) => { const c = p.company || 'Other'; if (!m.has(c)) m.set(c, []); m.get(c).push(p) })
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [sorted, group])
-
-  const toggleGroup = (c) => setExpanded((s) => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n })
-  const forceOpen = !!q.trim() || !!company
   const sync = ago(synced)
-  const cards = (list, showCompany) => list.map((p) => (
-    <Card key={p.id} p={p} showCompany={showCompany} open={open === p.id} onToggle={() => setOpen(open === p.id ? null : p.id)} />
-  ))
-
-  const STATS = [['instock', 'In stock', stats.instock, ''], ['soon', 'Expiring soon', stats.soon, 'warn'], ['expired', 'Expired', stats.expired, 'bad'], ['out', 'Out of stock', stats.out, '']]
+  const STATS = [['instock', 'In stock', stats.instock, ''], ['soon', 'Expiring', stats.soon, 'warn'], ['expired', 'Expired', stats.expired, 'bad'], ['out', 'Out', stats.out, 'mute']]
 
   return (
     <div className="app">
-      <header className="top">
-        <div className="brand"><div className="logo sm">SB</div>
-          <div><strong>Shree Bhavani</strong><div className={'sync ' + sync.cls}>{sync.text}</div></div></div>
-        <div className="actions">
-          <button className="icon" onClick={refresh} aria-label="Refresh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg></button>
-          <button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg></button>
+      <header className="hero">
+        <div className="herotop">
+          <div className="brand"><div className="logo sm">SB</div><div><strong>Shree Bhavani</strong><span>Medical Distribution</span></div></div>
+          <div className="actions">
+            <button className="icon" onClick={refresh} aria-label="Refresh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg></button>
+            <button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg></button>
+          </div>
         </div>
+        <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>
       </header>
 
-      <section className="stats">
+      <section className="stats up">
         {STATS.map(([k, label, n, tone]) => (
-          <button key={k} className={'stat ' + tone + (quick === k ? ' on' : '')} onClick={() => setQuick(k)}>
-            <b>{n}</b><span>{label}</span>
-          </button>
+          <button key={k} className={'stat ' + tone + (quick === k ? ' on' : '')} onClick={() => setQuick(k)}><b>{n}</b><span>{label}</span></button>
         ))}
       </section>
 
@@ -223,37 +204,40 @@ function Stock() {
           {q && <button className="clear" onClick={() => setQ('')} aria-label="Clear">x</button>}
         </div>
         <div className="filters">
-          <select value={company} onChange={(e) => setCompany(e.target.value)}>
-            <option value="">All companies ({companies.length})</option>
-            {companies.map(([c, n]) => <option key={c} value={c}>{c} ({n})</option>)}
-          </select>
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-          <button className={'toggle' + (group ? ' on' : '')} onClick={() => setGroup(!group)}>Group by company</button>
+          <div className="seg">
+            <button className={view === 'items' ? 'on' : ''} onClick={() => setView('items')}>Items</button>
+            <button className={view === 'companies' ? 'on' : ''} onClick={() => { setView('companies'); setCompany('') }}>Companies</button>
+          </div>
+          {view === 'items' && <select value={sort} onChange={(e) => setSort(e.target.value)}>{Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>}
+          {view === 'items' && company && <button className="chip" onClick={() => setCompany('')}>{company} &nbsp;x</button>}
         </div>
       </div>
 
       {error && <p className="error pad">{error}</p>}
-      {loading && <p className="muted pad">Loading stock...</p>}
-      {!loading && !error && <p className="count muted">{sorted.length} item{sorted.length === 1 ? '' : 's'}</p>}
-      {!loading && !error && sorted.length === 0 && <div className="empty"><b>No items found</b><span>Try a different search or filter.</span></div>}
-
-      {group ? groups.map(([c, list]) => {
-        const isOpen = forceOpen || expanded.has(c)
-        const units = list.reduce((s, p) => s + Number(p.total_qty), 0)
-        return (
-          <section key={c} className="group">
-            <button className="ghead" onClick={() => toggleGroup(c)}>
-              <span className="gname">{c}</span><span className="muted">{list.length} items · {num(units)} units</span>
-              <svg className={'chev' + (isOpen ? ' up' : '')} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>
-            </button>
-            {isOpen && <ul className="list">{cards(list, false)}</ul>}
-          </section>
-        )
-      }) : (
+      {loading && <Skeleton />}
+      {!loading && !error && view === 'companies' && (
         <>
-          <ul className="list">{cards(sorted.slice(0, limit), true)}</ul>
+          <p className="count muted">{cstats.length} companies</p>
+          <div className="tiles">
+            {cstats.map(([c, s]) => (
+              <button key={c} className="tile" style={{ '--h': hue(c) }} onClick={() => { setCompany(c); setView('items') }}>
+                <div className="av lg">{ini(c)}</div>
+                <div className="tname">{c}</div>
+                <div className="tmeta">{s.items} items · {num(s.units)} units</div>
+                {s.soon > 0 && <span className="pill soon">{s.soon} expiring</span>}
+              </button>
+            ))}
+          </div>
+          {!cstats.length && <div className="empty"><b>No companies found</b><span>Try a different search or filter.</span></div>}
+        </>
+      )}
+      {!loading && !error && view === 'items' && (
+        <>
+          <p className="count muted">{sorted.length} item{sorted.length === 1 ? '' : 's'}</p>
+          {!sorted.length && <div className="empty"><b>No items found</b><span>Try a different search or filter.</span></div>}
+          <ul className="list">
+            {sorted.slice(0, limit).map((p) => <Card key={p.id} p={p} open={open === p.id} onToggle={() => setOpen(open === p.id ? null : p.id)} />)}
+          </ul>
           {sorted.length > limit && <button className="more" onClick={() => setLimit(limit + PAGE)}>Show more ({sorted.length - limit} left)</button>}
         </>
       )}
@@ -264,7 +248,7 @@ function Stock() {
 function Shell() {
   const [tab, setTab] = useState('stock')
   const [seen, setSeen] = useState({ stock: true })
-  const go = (t) => { setTab(t); setSeen((s) => ({ ...s, [t]: true })) }
+  const go = (t) => { setTab(t); setSeen((s) => ({ ...s, [t]: true })); window.scrollTo(0, 0) }
   return (
     <>
       <div hidden={tab !== 'stock'}><Stock /></div>
@@ -272,7 +256,7 @@ function Shell() {
       {seen.parties && <div hidden={tab !== 'parties'}><Parties /></div>}
       <nav className="tabs">
         {[['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties']].map(([k, l]) => (
-          <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{l}</button>
+          <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
         ))}
       </nav>
     </>
