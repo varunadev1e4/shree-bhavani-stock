@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import Expiry from './Expiry'
 import Parties from './Parties'
+import Trends from './Trends'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge } from './util'
 
 const SORTS = { name: 'A to Z', qtyDesc: 'Stock: high to low', qtyAsc: 'Stock: low to high', expiry: 'Expiry: soonest' }
@@ -9,6 +10,7 @@ const PAGE = 40
 const I = (d) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 const ICONS = {
   home: I(<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />),
+  trends: I(<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />),
   stock: I(<path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />),
   expiry: I(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
   parties: I(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .6 3.3 2.3 3.7 5.2" /></>),
@@ -268,8 +270,9 @@ function Shell() {
       {seen.stock && <div hidden={tab !== 'stock'}><Stock /></div>}
       {seen.expiry && <div hidden={tab !== 'expiry'}><Expiry /></div>}
       {seen.parties && <div hidden={tab !== 'parties'}><Parties /></div>}
+      {seen.trends && <div hidden={tab !== 'trends'}><Trends /></div>}
       <nav className="tabs">
-        {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties']].map(([k, l]) => (
+        {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['trends', 'Trends']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
         ))}
       </nav>

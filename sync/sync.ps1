@@ -136,6 +136,15 @@ try {
     $json = ConvertTo-Json -InputObject $logRow -Compress
     Invoke-RestMethod -Method Post -Uri "$($script:base)/rest/v1/sync_log" -Headers $script:hdr `
       -Body ([Text.Encoding]::UTF8.GetBytes($json)) -ContentType "application/json" | Out-Null
+    # Refresh sales/purchase history for this financial year (only when the backup changed)
+    try {
+      $tag = if ($source -eq "live") { "live-" + (Get-Date -Format "yyyyMMddHH") } else { $source }
+      $mark = Join-Path $here "history.last"
+      if (-not (Test-Path $mark) -or ((Get-Content $mark -Raw).Trim() -ne $tag)) {
+        & (Join-Path $here "history.ps1") -Mdb $mdb
+        Set-Content $mark $tag
+      }
+    } catch { Log ("History skipped: " + $_.Exception.Message) }
     Log "Upload complete."
   }
 }
