@@ -1,0 +1,36 @@
+:root {
+  --bg: #f6f7f8; --card: #ffffff; --text: #111827; --muted: #6b7280;
+  --line: #e5e7eb; --accent: #0f766e; --bad: #b91c1c; --warn: #b45309;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1213; --card: #181c1e; --text: #f3f4f6; --muted: #9ca3af;
+    --line: #2a3033; --accent: #2dd4bf; --bad: #f87171; --warn: #fbbf24; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.app, .login { max-width: 640px; margin: 0 auto; padding: 12px; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 8px 2px; }
+.muted { color: var(--muted); } .small { font-size: 12px; } .pad { padding: 12px 4px; }
+.error { color: var(--bad); }
+input, button { font: inherit; }
+.search, .login input { width: 100%; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 16px; }
+.login { padding-top: 15vh; } .login h1 { margin: 0; }
+.login form { display: grid; gap: 10px; margin-top: 20px; }
+.login button { padding: 12px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 600; }
+.toggle { display: block; padding: 10px 2px; font-size: 14px; }
+.link { background: none; border: 0; color: var(--accent); }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.list li { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.row { width: 100%; display: flex; justify-content: space-between; gap: 12px; align-items: center;
+  text-align: left; padding: 12px; background: none; border: 0; color: inherit; }
+.name { font-weight: 600; }
+.qty { font-size: 20px; font-weight: 700; color: var(--accent); min-width: 44px; text-align: right; }
+.qty.zero { color: var(--bad); }
+.batches { width: 100%; border-collapse: collapse; font-size: 13px; border-top: 1px solid var(--line); }
+.batches th, .batches td { padding: 8px 10px; text-align: right; }
+.batches th:first-child, .batches td:first-child { text-align: left; }
+.batches th { color: var(--muted); font-weight: 500; }
+.expired { color: var(--bad); font-weight: 600; } .soon { color: var(--warn); font-weight: 600; }

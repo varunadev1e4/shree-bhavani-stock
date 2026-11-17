@@ -1,0 +1,6 @@
+sync/sync-config.json
+sync/sync.log
+node_modules
+dist
+.env
+.env.local

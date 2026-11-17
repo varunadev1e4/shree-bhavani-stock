@@ -1,0 +1,6 @@
+{
+  "backup_folder": "D:\\ProfitBk",
+  "live_mdb": "",
+  "supabase_url": "https://YOUR-PROJECT.supabase.co",
+  "supabase_key": "PASTE-SECRET-KEY-HERE"
+}
