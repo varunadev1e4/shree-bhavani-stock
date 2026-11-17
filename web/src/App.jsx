@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
+import Expiry from './Expiry'
+import Parties from './Parties'
 
 const num = (v) => (v == null ? '-' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 }))
 const fmtExp = (k) => (k ? String(k % 100).padStart(2, '0') + '/' + Math.floor(k / 100) : '-')
@@ -99,6 +101,7 @@ function Card({ p, open, onToggle, showCompany }) {
           <div className="name">{p.name}</div>
           <div className="meta">
             {p.packing && <span>{p.packing}</span>}
+            {p.rack_no && <span>Rack {p.rack_no}</span>}
             {showCompany && p.company && <span>{p.company}</span>}
             {q > 0 && p.nearest_expiry && <span className={'pill ' + st}>Exp {fmtExp(p.nearest_expiry)}</span>}
           </div>
@@ -258,6 +261,24 @@ function Stock() {
   )
 }
 
+function Shell() {
+  const [tab, setTab] = useState('stock')
+  const [seen, setSeen] = useState({ stock: true })
+  const go = (t) => { setTab(t); setSeen((s) => ({ ...s, [t]: true })) }
+  return (
+    <>
+      <div hidden={tab !== 'stock'}><Stock /></div>
+      {seen.expiry && <div hidden={tab !== 'expiry'}><Expiry /></div>}
+      {seen.parties && <div hidden={tab !== 'parties'}><Parties /></div>}
+      <nav className="tabs">
+        {[['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties']].map(([k, l]) => (
+          <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{l}</button>
+        ))}
+      </nav>
+    </>
+  )
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined)
   useEffect(() => {
@@ -266,5 +287,5 @@ export default function App() {
     return () => data.subscription.unsubscribe()
   }, [])
   if (session === undefined) return <p className="muted pad">Loading...</p>
-  return session ? <Stock /> : <Login />
+  return session ? <Shell /> : <Login />
 }

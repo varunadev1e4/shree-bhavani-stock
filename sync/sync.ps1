@@ -86,12 +86,14 @@ try {
   $syncId = Get-Date -Format "yyyyMMddHHmmss"
   $companies = Map-Rows (Get-Rows "SELECT RndId, [Name], ShortName, Deleted FROM Company") ([ordered]@{
     RndId = "id"; Name = "name"; ShortName = "short_name"; Deleted = "deleted" }) $syncId
-  $products = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], Packing, Mrp, SaleGst, ComId, Deleted FROM Product") ([ordered]@{
-    RndId = "id"; Code = "code"; Name = "name"; Packing = "packing"; Mrp = "mrp"; SaleGst = "gst"; ComId = "company_id"; Deleted = "deleted" }) $syncId
+  $products = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], Packing, Mrp, SaleGst, ComId, Deleted, RackNo FROM Product") ([ordered]@{
+    RndId = "id"; Code = "code"; Name = "name"; Packing = "packing"; Mrp = "mrp"; SaleGst = "gst"; ComId = "company_id"; Deleted = "deleted"; RackNo = "rack_no" }) $syncId
   $batches = Map-Rows (Get-Rows "SELECT RndId, ProdId, BatchNo, ExpMonth, ExpYear, Qty, Mrp, BillPrice FROM Batch WHERE Qty > 0") ([ordered]@{
     RndId = "id"; ProdId = "product_id"; BatchNo = "batch_no"; ExpMonth = "exp_month"; ExpYear = "exp_year"; Qty = "qty"; Mrp = "mrp"; BillPrice = "bill_price" }) $syncId
 
-  Log ("Read {0} companies, {1} products, {2} batches with stock" -f $companies.Count, $products.Count, $batches.Count)
+  $parties = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], City, Cell, Phone, CurBal, SubGroupId, Deleted FROM Accounts WHERE SubGroupId IN (2,3)") ([ordered]@{
+    RndId = "id"; Code = "code"; Name = "name"; City = "city"; Cell = "phone"; Phone = "phone2"; CurBal = "cur_bal"; SubGroupId = "group_id"; Deleted = "deleted" }) $syncId
+  Log ("Read {0} companies, {1} products, {2} batches with stock, {3} parties" -f $companies.Count, $products.Count, $batches.Count, $parties.Count)
   if ($products.Count -lt 1) { throw "No products read - stopping so Supabase data is not wiped." }
 
   if ($DryRun) {
@@ -106,9 +108,11 @@ try {
     Upload "companies" $companies
     Upload "products" $products
     Upload "batches" $batches
+    Upload "parties" $parties
     Remove-Stale "companies" $syncId
     Remove-Stale "products" $syncId
     Remove-Stale "batches" $syncId
+    Remove-Stale "parties" $syncId
 
     $logRow = @(@{ source = $source; products = $products.Count; batches = $batches.Count })
     $json = ConvertTo-Json -InputObject $logRow -Compress

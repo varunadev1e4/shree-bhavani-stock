@@ -100,3 +100,15 @@ A log of every run is saved in `sync.log` next to the script.
 | Website says "Invalid login" | User not created in Supabase, or wrong password |
 | Website loads but shows no items | Run the sync; check `schema.sql` was run fully |
 | Website blank after deploy | Check both `VITE_` variables in Vercel, then Redeploy |
+
+---
+
+## Update 2: Expiry report, Parties, rack numbers
+
+Do these in order:
+1. Supabase > SQL Editor: run `database/migration-2.sql` once.
+2. Shop PC: replace `sync.ps1` in your sync folder with the new one (keep your `sync-config.json`), then run `run-sync.bat`.
+3. GitHub: upload the new files in `web/src` (App.jsx, Expiry.jsx, Parties.jsx, util.js, styles.css). Vercel redeploys.
+
+Check: open the Parties tab, pick a customer you know, compare the balance with Profit Maker.
+If the amounts are reversed (receivables shown as advances), set `DR_POSITIVE` to `false` at the top of `web/src/Parties.jsx`.
