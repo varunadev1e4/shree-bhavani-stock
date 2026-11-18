@@ -293,8 +293,19 @@ function Shell() {
   useEffect(() => {
     let hiddenAt = 0
     const bump = () => { setStale(false); setRev((r) => r + 1) }
-    const vis = () => { if (document.hidden) hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > 120000) bump() }
-    const iv = setInterval(() => { if (!document.hidden) bump() }, 600000)
+    let known = null
+    // A tiny check first: reload the data only when a newer backup has been synced (saves data usage)
+    const check = async () => {
+      try {
+        const { data } = await supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1)
+        const row = data && data[0], v = row ? (row.source === 'live' ? row.ran_at : row.source) : null
+        if (known && v && v !== known) bump()
+        if (v) known = v
+      } catch (e) { /* offline */ }
+    }
+    check()
+    const vis = () => { if (document.hidden) hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > 120000) check() }
+    const iv = setInterval(() => { if (!document.hidden) check() }, 600000)
     const st = () => setStale(true)
     document.addEventListener('visibilitychange', vis); window.addEventListener('sb-stale', st)
     return () => { clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('sb-stale', st) }

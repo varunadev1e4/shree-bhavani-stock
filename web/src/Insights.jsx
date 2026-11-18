@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, num, fmtExp, expState, waLink, L, addYm } from './util'
 import Trends from './Trends'
+import Analysis from './Analysis'
 
-const TABS = [['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['margin', 'Margins']]
+const TABS = [['overview', 'Overview'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['margin', 'Margins']]
 const AGE = [['0-30', '#16a34a'], ['31-60', '#d97706'], ['61-90', '#ea580c'], ['90+', '#dc2626']]
 const lc = (s) => String(s || '').toLowerCase()
 const phoneOf = (p) => p && (p.phone || p.phone2)
@@ -183,7 +184,7 @@ function Margins({ fys }) {
 }
 
 export default function Insights() {
-  const [tab, setTab] = useState('trends')
+  const [tab, setTab] = useState('overview')
   const [stock, setStock] = useState([])
   const [parties, setParties] = useState([])
   const [fm, setFm] = useState([])
@@ -201,6 +202,7 @@ export default function Insights() {
       <header className="top"><h1 className="h1">Insights</h1></header>
       <div className="qchips">{TABS.map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}</div>
       <div style={{ marginTop: 12 }}>
+        {tab === 'overview' && <Analysis stock={stock} parties={parties} fys={fys} latest={latest} />}
         {tab === 'trends' && <Trends />}
         {tab === 'reorder' && <Reorder stock={stock} latest={latest} />}
         {tab === 'slow' && <Slow stock={stock} />}
