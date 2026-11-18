@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, num, fmtExp, expState, waLink, L, addYm, SHOP } from './util'
 import Trends from './Trends'
 import Analysis from './Analysis'
+import ExportBar from './Export'
 
 const TABS = [['overview', 'Overview'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['margin', 'Margins']]
 const AGE = [['0-30', '#16a34a'], ['31-60', '#d97706'], ['61-90', '#ea580c'], ['90+', '#dc2626']]
@@ -43,6 +44,7 @@ function Reorder({ stock, latest }) {
     <>
       <div className="qchips">{[1, 1.5, 2, 3].map((c) => <button key={c} className={'qc' + (cover === c ? ' on' : '')} onClick={() => setCover(c)}>{c} month cover</button>)}</div>
       <p className="count muted">Suggested from the last 3 full months of sales. Set the order level in Profit Maker to override.</p>
+      {groups.length > 0 && <ExportBar build={() => ({ title: 'Reorder list (' + cover + ' month cover)', filename: 'reorder', columns: ['Company', 'Item', 'In stock', 'Sells per month', 'To order'], rows: groups.flatMap(([c, l]) => l.map((x) => [c, x.p.name, Number(x.p.total_qty), Math.round(x.a * 10) / 10, x.sug])), numCols: [2, 3, 4] })} />}
       {!sales && <p className="muted pad">Loading...</p>}
       {sales && !groups.length && <Empty t="Nothing needs ordering" />}
       {groups.map(([c, l]) => (
@@ -69,6 +71,7 @@ function Slow({ stock }) {
     <>
       <div className="qchips">{[60, 90, 180].map((d) => <button key={d} className={'qc' + (days === d ? ' on' : '')} onClick={() => setDays(d)}>No sale in {d} days</button>)}</div>
       <p className="count muted">{rows.length} items · {num(units)} units sitting in stock</p>
+      {rows.length > 0 && <ExportBar build={() => ({ title: 'Slow stock (no sale in ' + days + ' days)', filename: 'slow-stock', columns: ['Item', 'Company', 'Stock', 'Last sold', 'Nearest expiry'], rows: rows.map(({ p, d }) => [p.name, p.company || '', Number(p.total_qty), p.last_sale || 'No sale on record', fmtExp(p.nearest_expiry)]), numCols: [2] })} />}
       {!rows.length && <Empty t="No slow stock" />}
       <ul className="list">{rows.slice(0, 80).map(({ p, d }) => (
         <li key={p.id} className={'card s-' + (d >= 180 ? 'expired' : 'soon')}><div className="row static">
@@ -103,6 +106,7 @@ function Quiet({ latest, parties }) {
         <button className={'qc' + (mode === 'year' ? ' on' : '')} onClick={() => setMode('year')}>vs same months last year</button>
       </div>
       <p className="count muted">Customers whose last 3 months of buying fell by 40% or more (only those who bought over ₹20,000 before).</p>
+      {list.length > 0 && <ExportBar build={() => ({ title: 'Customers buying less', filename: 'quiet-buyers', columns: ['Customer', 'Before (Rs)', 'Now (Rs)', 'Drop %'], rows: list.map((e) => [e.k, Math.round(e.prev), Math.round(e.now), e.prev ? Math.round((1 - e.now / e.prev) * 100) : 0]), numCols: [1, 2, 3] })} />}
       {!rows && <p className="muted pad">Loading...</p>}
       {rows && !list.length && <Empty t="No big drops found" />}
       <ul className="list">{list.map((e) => {
@@ -127,6 +131,7 @@ function Overdue({ parties }) {
   return (
     <>
       <p className="count muted">Credit bills only. What each customer owes is matched against their newest bills first; anything older, including opening balance, counts as 90+.</p>
+      <ExportBar build={() => ({ title: 'Overdue ageing (credit bills)', filename: 'overdue', columns: ['Customer', 'Total (Rs)', '0-30 days', '31-60 days', '61-90 days', '90+ days'], rows: list.map(({ p, a }) => [p.name, Number(p.receivable), ...a.map((v) => Math.round(v))]), numCols: [1, 2, 3, 4, 5] })} />
       <div className="minis">{AGE.map(([l, c], i) => <div key={l} className="mini"><span>{l} days</span><b style={{ color: c }}>{L(tot[i])}</b></div>)}</div>
       <ul className="list" style={{ marginTop: 12 }}>{list.map(({ p, a }) => {
         const t = a.reduce((s, v) => s + v, 0) || 1

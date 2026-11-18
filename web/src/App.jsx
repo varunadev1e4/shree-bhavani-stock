@@ -5,6 +5,7 @@ import Parties from './Parties'
 import Insights from './Insights'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, APP, SHOP } from './util'
 import { Mark } from './Logo'
+import ExportBar from './Export'
 
 const SORTS = { name: 'A to Z', qtyDesc: 'Stock: high to low', qtyAsc: 'Stock: low to high', expiry: 'Expiry: soonest' }
 const PAGE = 40
@@ -84,7 +85,7 @@ function Home({ go }) {
       </header>
       {err && <p className="error pad">{err}</p>}
       <section className="kpis">
-        {K ? K.map(([c, l, v, s, t]) => <button key={l} className={'kpi ' + c} onClick={() => go(t)}><span>{l}</span><b>{v}</b><small>{s}</small></button>)
+        {K ? K.map(([c, l, v, s, t]) => <button key={l} className={'kpi ' + c} onClick={() => go(t, c === 'k1' ? 'recv' : c === 'k2' ? 'pay' : undefined)}><span>{l}</span><b>{v}</b><small>{s}</small></button>)
           : [0, 1, 2, 3].map((i) => <div key={i} className="kpi sk" />)}
       </section>
       {d && d.day && (
@@ -275,6 +276,7 @@ function Stock() {
       {!loading && !error && view === 'items' && (
         <>
           <p className="count muted">{sorted.length} item{sorted.length === 1 ? '' : 's'}</p>
+          {sorted.length > 0 && <ExportBar build={() => ({ title: 'Stock list' + (company ? ' - ' + company : ''), subtitle: sorted.length + ' items', filename: 'stock', columns: ['Item', 'Packing', 'Company', 'Rack', 'Stock', 'Nearest expiry'], rows: sorted.map((p) => [p.name, p.packing || '', p.company || '', p.rack_no || '', Number(p.total_qty), fmtExp(p.nearest_expiry)]), numCols: [4] })} />}
           {!sorted.length && <div className="empty"><b>No items found</b><span>Try a different search or filter.</span></div>}
           <ul className="list">{sorted.slice(0, limit).map((p) => <Card key={p.id} p={p} open={open === p.id} onToggle={() => setOpen(open === p.id ? null : p.id)} />)}</ul>
           {sorted.length > limit && <button className="more" onClick={() => setLimit(limit + PAGE)}>Show more ({sorted.length - limit} left)</button>}
@@ -312,14 +314,15 @@ function Shell() {
     return () => { clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('sb-stale', st) }
   }, [])
   useEffect(() => { const f = () => setOff(!navigator.onLine); window.addEventListener('online', f); window.addEventListener('offline', f); return () => { window.removeEventListener('online', f); window.removeEventListener('offline', f) } }, [])
-  const go = (t) => { setTab(t); setSeen((s) => ({ ...s, [t]: true })); window.scrollTo(0, 0) }
+  const [ps, setPs] = useState('recv')
+  const go = (t, side) => { if (side) setPs(side); setTab(t); setSeen((s) => ({ ...s, [t]: true })); window.scrollTo(0, 0) }
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div key={rev} hidden={tab !== 'home'}><Home go={go} /></div>
       {seen.stock && <div key={rev} hidden={tab !== 'stock'}><Stock /></div>}
       {seen.expiry && <div key={rev} hidden={tab !== 'expiry'}><Expiry /></div>}
-      {seen.parties && <div key={rev} hidden={tab !== 'parties'}><Parties /></div>}
+      {seen.parties && <div key={rev} hidden={tab !== 'parties'}><Parties side={ps} /></div>}
       {seen.insights && <div key={rev} hidden={tab !== 'insights'}><Insights /></div>}
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['insights', 'Insights']].map(([k, l]) => (

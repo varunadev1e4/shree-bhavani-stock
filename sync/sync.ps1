@@ -97,13 +97,20 @@ try {
   # Dues are worked out bill by bill, the same way Profit Maker's Receivables and Payables reports do:
   # every CREDIT bill (payment terms = credit) with a balance left. Cash bills are left out.
   $recvMap = @{}; $payMap = @{}; $ageMap = @{}; $today = (Get-Date).Date
-  foreach ($r in (Get-Rows "SELECT AccId, TranType, InvDate, NetAmt, PaidAmt FROM TranMain WHERE TranType IN ('S','P') AND Terms = 1").Rows) {
+  $bills = New-Object System.Collections.Generic.List[object]
+  foreach ($r in (Get-Rows "SELECT AccId, TranType, InvDate, FeedNo, InvNo, NetAmt, PaidAmt FROM TranMain WHERE TranType IN ('S','P') AND Terms = 1").Rows) {
     if ($r["NetAmt"] -is [DBNull]) { continue }
     $paid = if ($r["PaidAmt"] -is [DBNull]) { 0.0 } else { [double]$r["PaidAmt"] }
     $o = [double]$r["NetAmt"] - $paid
     if ($o -le 0.5) { continue }
     $k = [string]$r["AccId"]
-    if (([string]$r["TranType"]).Trim() -eq "S") {
+    $isS = ([string]$r["TranType"]).Trim() -eq "S"
+    $bills.Add([ordered]@{
+      party_id = [int]$r["AccId"]; kind = $(if ($isS) { "R" } else { "P" }); bill_no = ([string]$r["FeedNo"]).Trim()
+      ref_no = $(if ($isS) { $null } else { ([string]$r["InvNo"]).Trim() })
+      bill_date = $(if ($r["InvDate"] -is [DBNull]) { $null } else { ([datetime]$r["InvDate"]).ToString("yyyy-MM-dd") })
+      total = [Math]::Round([double]$r["NetAmt"], 2); paid = [Math]::Round($paid, 2); balance = [Math]::Round($o, 2) })
+    if ($isS) {
       $recvMap[$k] = $(if ($recvMap.ContainsKey($k)) { $recvMap[$k] } else { 0.0 }) + $o
       $age = if ($r["InvDate"] -is [DBNull]) { 999 } else { ($today - ([datetime]$r["InvDate"]).Date).Days }
       $bi = if ($age -le 30) { 0 } elseif ($age -le 60) { 1 } elseif ($age -le 90) { 2 } else { 3 }
@@ -155,6 +162,13 @@ try {
     Remove-Stale "products" $syncId
     Remove-Stale "batches" $syncId
     Remove-Stale "parties" $syncId
+    # Pending bills (replaced in full each time)
+    Invoke-RestMethod -Method Delete -Uri "$($script:base)/rest/v1/pending_bills?id=gt.0" -Headers $script:hdr | Out-Null
+    for ($i = 0; $i -lt $bills.Count; $i += 500) {
+      $ch = $bills.GetRange($i, [Math]::Min(500, $bills.Count - $i))
+      $jb = ConvertTo-Json -InputObject @($ch) -Depth 4 -Compress
+      Invoke-RestMethod -Method Post -Uri "$($script:base)/rest/v1/pending_bills" -Headers $script:hdr -Body ([Text.Encoding]::UTF8.GetBytes($jb)) -ContentType "application/json; charset=utf-8" | Out-Null
+    }
     Invoke-RestMethod -Method Delete -Uri "$($script:base)/rest/v1/daily_summary?id=gt.0" -Headers $script:hdr | Out-Null
     for ($i = 0; $i -lt $daily.Count; $i += 500) {
       $ch = $daily.GetRange($i, [Math]::Min(500, $daily.Count - $i))

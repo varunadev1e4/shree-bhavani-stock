@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchAll, fmtExp, mk, num } from './util'
+import ExportBar from './Export'
 
 const RANGES = [['exp', 'Expired'], [1, '1 month'], [3, '3 months'], [6, '6 months'], [12, '12 months']]
 
@@ -52,6 +53,7 @@ export default function Expiry() {
         {RANGES.map(([k, l]) => <button key={k} className={'toggle' + (range === k ? ' on' : '')} onClick={() => setRange(k)}>{l}</button>)}
       </div>
       <div className="searchbox sp"><input type="search" placeholder="Filter by medicine or company" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      {!loading && total > 0 && <ExportBar build={() => ({ title: 'Expiry report', subtitle: total + ' batches', filename: 'expiry', columns: ['Company', 'Item', 'Packing', 'Batch', 'Expiry', 'Qty', 'MRP'], rows: groups.flatMap(([c, l]) => l.map((x) => [c, x.name, x.packing || '', x.batch_no, fmtExp(x.key), Number(x.qty), Number(x.mrp)])), numCols: [5, 6] })} />}
       {error && <p className="error pad">{error}</p>}
       {loading ? <p className="muted pad">Loading...</p> : <p className="count muted">{total} batch{total === 1 ? '' : 'es'} {range === 'exp' ? 'already expired' : 'expired or expiring within ' + range + ' month' + (range > 1 ? 's' : '')}</p>}
       {!loading && !total && <div className="empty"><b>Nothing here</b><span>No batches in this range.</span></div>}
