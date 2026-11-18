@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, waLink } from './util'
+import Customer from './Customer'
 
 export default function Parties() {
   const [rows, setRows] = useState([])
@@ -10,11 +11,12 @@ export default function Parties() {
   const [showAll, setShowAll] = useState(false)
   const [sort, setSort] = useState('bal')
   const [open, setOpen] = useState(null)
+  const [sel, setSel] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
-      const d = await fetchAll('parties', 'id,code,name,city,phone,phone2,receivable,payable,deleted')
+      const d = await fetchAll('parties', 'id,code,name,city,phone,phone2,receivable,payable,last_sale,age_30,age_60,age_90,age_90p,deleted')
       setRows(d.filter((p) => !p.deleted).map((p) => ({ ...p, _s: [p.name, p.code, p.city].filter(Boolean).join(' ').toLowerCase() })))
     } catch (e) { setError(e.message) }
     setLoading(false)
@@ -67,6 +69,7 @@ export default function Parties() {
               </button>
               {open === p.id && (
                 <div className="batches btnrow">
+                  <button className="ghost" onClick={() => setSel(p)}>Details</button>
                   {ph ? <a className="ghost" href={'tel:' + ph.replace(/\D/g, '')}>Call {ph}</a> : <span className="muted">No phone saved</span>}
                   {ph && side === 'recv' && amt > 0.5 && (
                     <a className="ghost" target="_blank" rel="noreferrer"
@@ -78,6 +81,7 @@ export default function Parties() {
           )
         })}
       </ul>
+      {sel && <Customer p={sel} onClose={() => setSel(null)} />}
     </div>
   )
 }

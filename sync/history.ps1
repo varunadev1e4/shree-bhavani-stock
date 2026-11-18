@@ -45,14 +45,15 @@ try {
     $monthly.Add([ordered]@{ fy = $Fy; ym = $ym; kind = ([string]$r["tt"]).Trim(); bills = [int]$r["n"]; amount = [Math]::Round([double]$r["amt"], 2) })
   }
   $prod = New-Object System.Collections.Generic.List[object]
-  $sqlP = "SELECT $ymT AS ym, p.[Name] AS pn, c.[Name] AS cn, SUM(i.Qty) AS q, SUM(i.ProValue) AS amt FROM ((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId WHERE m.TranType='S' GROUP BY $ymT, p.[Name], c.[Name]"
+  $sqlP = "SELECT $ymT AS ym, p.[Name] AS pn, c.[Name] AS cn, SUM(i.Qty) AS q, SUM(i.ProValue) AS amt, SUM((i.Qty + Nz(i.Free,0)) * Nz(b.CostPrice,0)) AS cst FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY $ymT, p.[Name], c.[Name]"
   foreach ($r in (Rows $sqlP).Rows) {
     if ($r["ym"] -is [DBNull] -or $r["pn"] -is [DBNull]) { continue }
     $ym = [int]$r["ym"]; if ($ym -lt $lo -or $ym -gt $hi) { continue }
     $cn = if ($r["cn"] -is [DBNull]) { "Other" } else { ([string]$r["cn"]).Trim() }
     $q = if ($r["q"] -is [DBNull]) { 0 } else { [double]$r["q"] }
     $a = if ($r["amt"] -is [DBNull]) { 0 } else { [double]$r["amt"] }
-    $prod.Add([ordered]@{ fy = $Fy; ym = $ym; product = ([string]$r["pn"]).Trim(); company = $cn; qty = [Math]::Round($q, 2); amount = [Math]::Round($a, 2) })
+    $ct = if ($r["cst"] -is [DBNull]) { 0 } else { [double]$r["cst"] }
+    $prod.Add([ordered]@{ fy = $Fy; ym = $ym; product = ([string]$r["pn"]).Trim(); company = $cn; qty = [Math]::Round($q, 2); amount = [Math]::Round($a, 2); cost = [Math]::Round($ct, 2) })
   }
   $party = New-Object System.Collections.Generic.List[object]
   foreach ($r in (Rows "SELECT $ymA AS ym, a.[Name] AS pn, SUM(h.NetAmt) AS amt FROM AccHead h INNER JOIN Accounts a ON h.AccId=a.RndId WHERE h.TranType='S' GROUP BY $ymA, a.[Name]").Rows) {

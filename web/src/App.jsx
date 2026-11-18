@@ -2,15 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import Expiry from './Expiry'
 import Parties from './Parties'
-import Trends from './Trends'
-import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge } from './util'
+import Insights from './Insights'
+import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync } from './util'
 
 const SORTS = { name: 'A to Z', qtyDesc: 'Stock: high to low', qtyAsc: 'Stock: low to high', expiry: 'Expiry: soonest' }
 const PAGE = 40
 const I = (d) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 const ICONS = {
   home: I(<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />),
-  trends: I(<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />),
+  insights: I(<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />),
   stock: I(<path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />),
   expiry: I(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
   parties: I(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .6 3.3 2.3 3.7 5.2" /></>),
@@ -42,22 +42,31 @@ function Login() {
   )
 }
 
+function daily(rows) {
+  if (!rows.length) return null
+  const days = [...new Set(rows.map((r) => r.day))].sort()
+  const dy = days[days.length - 1]
+  const at = (k, d = dy) => rows.filter((r) => r.day === d && r.kind === k).reduce((s, r) => ({ a: s.a + Number(r.amount), n: s.n + Number(r.bills) }), { a: 0, n: 0 })
+  return { dy, S: at('S'), RS: at('RS'), P: at('P'), spark: days.slice(-14).map((d) => at('S', d).a) }
+}
+
 function Home({ go }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
   const load = useCallback(async () => {
     try {
-      const [pr, st, lg] = await Promise.all([
+      const [pr, st, lg, dl] = await Promise.all([
         fetchAll('parties', 'id,name,city,phone,phone2,receivable,payable,deleted'),
         fetchAll('stock_summary', 'id,total_qty,nearest_expiry'),
-        supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1),
+        latestSync(),
+        fetchAll('daily_summary', 'day,kind,bills,amount').catch(() => []),
       ])
       const live = pr.filter((p) => !p.deleted)
       const cust = live.map((p) => ({ ...p, owed: Number(p.receivable) || 0 })).filter((p) => p.owed > 0.5).sort((a, b) => b.owed - a.owed)
       const sup = live.reduce((s, p) => s + Math.max(Number(p.payable) || 0, 0), 0)
       const inStock = st.filter((p) => Number(p.total_qty) > 0)
       setD({ recv: cust.reduce((s, p) => s + p.owed, 0), nCust: cust.length, pay: sup, nPay: live.filter((p) => Number(p.payable) > 0.5).length, items: inStock.length,
-        soon: inStock.filter((p) => expState(p.nearest_expiry)).length, top: cust.slice(0, 5), sync: lg.data && lg.data[0] })
+        soon: inStock.filter((p) => expState(p.nearest_expiry)).length, top: cust.slice(0, 5), sync: lg, day: daily(dl) })
     } catch (e) { setErr(e.message) }
   }, [])
   useEffect(() => { load() }, [load])
@@ -77,6 +86,16 @@ function Home({ go }) {
         {K ? K.map(([c, l, v, s, t]) => <button key={l} className={'kpi ' + c} onClick={() => go(t)}><span>{l}</span><b>{v}</b><small>{s}</small></button>)
           : [0, 1, 2, 3].map((i) => <div key={i} className="kpi sk" />)}
       </section>
+      {d && d.day && (
+        <section><h2 className="h2">Latest day · {new Date(d.day.dy).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</h2>
+          <div className="minis">
+            <div className="mini"><span>Sales</span><b>{rs(d.day.S.a)}</b><small className="muted">{d.day.S.n} bills</small></div>
+            <div className="mini"><span>Collected</span><b>{rs(d.day.RS.a)}</b><small className="muted">{d.day.RS.n} receipts</small></div>
+            <div className="mini"><span>Purchases</span><b>{rs(d.day.P.a)}</b><small className="muted">{d.day.P.n} bills</small></div>
+          </div>
+          <div className="chartcard"><svg viewBox="0 0 280 60" className="chart">{d.day.spark.map((v, i) => { const mx = Math.max(1, ...d.day.spark), h = (v / mx) * 52; return <rect key={i} x={i * 20 + 2} y={58 - h} width="14" height={h} rx="4" fill={i === d.day.spark.length - 1 ? '#0d9488' : '#94a3b8'} /> })}</svg><p className="muted small" style={{ margin: '4px 6px 0' }}>Sales, last 14 days</p></div>
+        </section>
+      )}
       {d && d.top.length > 0 && (
         <section><h2 className="h2">Highest dues</h2>
           <ul className="list">{d.top.map((p) => (
@@ -96,10 +115,15 @@ function Home({ go }) {
 function Batches({ p }) {
   const [rows, setRows] = useState(null)
   useEffect(() => {
-    supabase.from('batches').select('id,batch_no,exp_month,exp_year,qty,mrp,bill_price')
-      .eq('product_id', p.id).gt('qty', 0).order('exp_year').order('exp_month').then(({ data }) => setRows(data || []))
+    cached('b' + p.id, async () => {
+      const { data, error } = await supabase.from('batches').select('id,batch_no,exp_month,exp_year,qty,mrp,bill_price,cost_price')
+        .eq('product_id', p.id).gt('qty', 0).order('exp_year').order('exp_month')
+      if (error) throw error
+      return data
+    }).then((d) => setRows(d || [])).catch(() => setRows([]))
   }, [p.id])
   const gst = Number(p.gst) || 0
+  const mg = (b) => { const r = Number(b.bill_price) / (1 + gst / 100), c = Number(b.cost_price); return r > 0 && c > 0 ? Math.round(((r - c) / r) * 100) + '%' : '-' }
   const ex = (v) => (v == null ? '-' : num(Number(v) / (1 + gst / 100)))
   if (!rows) return <div className="batches"><div className="sk line" /></div>
   if (!rows.length) return <p className="muted pad">No stock.</p>
@@ -110,11 +134,11 @@ function Batches({ p }) {
   return (
     <div className="batches">
       <table>
-        <thead><tr><th>Batch</th><th>Expiry</th><th>Qty</th><th>MRP</th><th>Rate</th><th>GST</th></tr></thead>
+        <thead><tr><th>Batch</th><th>Expiry</th><th>Qty</th><th>MRP</th><th>Rate</th><th>GST</th><th>Margin</th></tr></thead>
         <tbody>{rows.map((b) => { const k = b.exp_year * 100 + b.exp_month
-          return <tr key={b.id}><td>{b.batch_no}</td><td><span className={'pill ' + expState(k)}>{fmtExp(k)}</span></td><td><b>{num(b.qty)}</b></td><td>{num(b.mrp)}</td><td>{ex(b.bill_price)}</td><td>{gst}%</td></tr> })}</tbody>
+          return <tr key={b.id}><td>{b.batch_no}</td><td><span className={'pill ' + expState(k)}>{fmtExp(k)}</span></td><td><b>{num(b.qty)}</b></td><td>{num(b.mrp)}</td><td>{ex(b.bill_price)}</td><td>{gst}%</td><td>{mg(b)}</td></tr> })}</tbody>
       </table>
-      <p className="muted small">Rate is before GST.</p>
+      <p className="muted small">Rate is before GST. Margin is an estimate from cost price.</p>
       <button className="ghost" onClick={share}>Share on WhatsApp</button>
     </div>
   )
@@ -158,8 +182,7 @@ function Stock() {
     try {
       const d = await fetchAll('stock_summary', '*')
       setAll(d.map((p) => ({ ...p, _s: [p.name, p.code, p.company].filter(Boolean).join(' ').toLowerCase() })))
-      const { data } = await supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1)
-      setSynced(data && data[0])
+      setSynced(await latestSync())
     } catch (e) { setError(e.message) }
     setLoading(false)
   }, [])
@@ -263,16 +286,19 @@ function Stock() {
 function Shell() {
   const [tab, setTab] = useState('home')
   const [seen, setSeen] = useState({ home: true })
+  const [off, setOff] = useState(!navigator.onLine)
+  useEffect(() => { const f = () => setOff(!navigator.onLine); window.addEventListener('online', f); window.addEventListener('offline', f); return () => { window.removeEventListener('online', f); window.removeEventListener('offline', f) } }, [])
   const go = (t) => { setTab(t); setSeen((s) => ({ ...s, [t]: true })); window.scrollTo(0, 0) }
   return (
     <>
+      {off && <div className="offbar">Offline: showing last saved data</div>}
       <div hidden={tab !== 'home'}><Home go={go} /></div>
       {seen.stock && <div hidden={tab !== 'stock'}><Stock /></div>}
       {seen.expiry && <div hidden={tab !== 'expiry'}><Expiry /></div>}
       {seen.parties && <div hidden={tab !== 'parties'}><Parties /></div>}
-      {seen.trends && <div hidden={tab !== 'trends'}><Trends /></div>}
+      {seen.insights && <div hidden={tab !== 'insights'}><Insights /></div>}
       <nav className="tabs">
-        {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['trends', 'Trends']].map(([k, l]) => (
+        {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['insights', 'Insights']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
         ))}
       </nav>

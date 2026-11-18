@@ -77,8 +77,7 @@ export default function Trends() {
   const items = rank === 'company' ? top(pm, 'company') : rank === 'product' ? top(pm, 'product') : top(pp, 'party')
 
   return (
-    <div className="app">
-      <header className="top"><div><h1 className="h1">Trends</h1><div className="muted small">Financial years, April to March</div></div></header>
+    <div>
       {err && <p className="error pad">{err}</p>}
       {loading && <p className="muted pad">Loading...</p>}
       {!loading && !fys.length && <div className="empty"><b>No history yet</b><span>Run the history upload on the shop PC first.</span></div>}

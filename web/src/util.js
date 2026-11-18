@@ -11,7 +11,7 @@ export const waLink = (phone, text) => {
   return 'https://wa.me/' + d + '?text=' + encodeURIComponent(text)
 }
 
-export async function fetchAll(table, cols, filter) {
+async function rawFetchAll(table, cols, filter) {
   let all = [], from = 0
   for (;;) {
     let q = supabase.from(table).select(cols).order('id').range(from, from + 999)
@@ -36,3 +36,27 @@ export function backupAge(row) {
   const t = d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
   return { text: 'Data as of ' + t, cls: h <= 26 ? 'good' : h <= 50 ? 'warn' : 'bad' }
 }
+
+// Offline support: remember the last good answer and use it when the network fails.
+export async function cached(key, fn) {
+  try {
+    const d = await fn()
+    try { localStorage.setItem('sb:' + key, JSON.stringify(d)) } catch (e) { /* storage full */ }
+    return d
+  } catch (e) {
+    const s = localStorage.getItem('sb:' + key)
+    if (s) return JSON.parse(s)
+    throw e
+  }
+}
+export const fetchAll = (table, cols, filter, key) => {
+  const k = key || (filter ? null : table + ':' + cols)
+  return k ? cached(k, () => rawFetchAll(table, cols, filter)) : rawFetchAll(table, cols, filter)
+}
+export const latestSync = () => cached('sync', async () => {
+  const { data, error } = await supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1)
+  if (error) throw error
+  return data && data[0]
+})
+export const L = (v) => (v >= 1e7 ? '\u20B9' + (v / 1e7).toFixed(2) + ' Cr' : v >= 1e5 ? '\u20B9' + (v / 1e5).toFixed(1) + ' L' : '\u20B9' + Math.round(v).toLocaleString('en-IN'))
+export const addYm = (ym, n) => { const t = Math.floor(ym / 100) * 12 + (ym % 100 - 1) + n; return Math.floor(t / 12) * 100 + (t % 12) + 1 }

@@ -14,7 +14,7 @@ export default function Expiry() {
     setLoading(true); setError('')
     try {
       const [b, p] = await Promise.all([
-        fetchAll('batches', 'id,product_id,batch_no,exp_month,exp_year,qty,mrp', (x) => x.gt('qty', 0)),
+        fetchAll('batches', 'id,product_id,batch_no,exp_month,exp_year,qty,mrp', (x) => x.gt('qty', 0), 'exp-batches'),
         fetchAll('stock_summary', 'id,name,packing,company'),
       ])
       const pm = new Map(p.map((x) => [x.id, x]))
