@@ -1,6 +1,7 @@
 {
   "backup_folder": "D:\\ProfitBk",
   "live_mdb": "",
-  "supabase_url": "https://YOUR-PROJECT.supabase.co",
-  "supabase_key": "PASTE-SECRET-KEY-HERE"
+  "supabase_url": "https://nnqkjpwlahjyphslzfgp.supabase.co",
+  "supabase_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ucWtqcHdsYWhqeXBoc2x6ZmdwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDg5MDE3NiwiZXhwIjoyMTEwNDY2MTc2fQ.rbLHO7NH9lxBNpe42NlkQZQ-ossF1NS6fiGjttj3WkY",
+  "data_file": "D:\\TriColor\\Data\\Data2627.Mdb"
 }

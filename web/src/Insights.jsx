@@ -3,8 +3,9 @@ import { fetchAll, rs, num, fmtExp, expState, waLink, L, addYm, SHOP } from './u
 import Trends from './Trends'
 import Analysis from './Analysis'
 import ExportBar from './Export'
+import Reports from './Reports'
 
-const TABS = [['overview', 'Overview'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['margin', 'Margins']]
+const TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['margin', 'Margins']]
 const AGE = [['0-30', '#16a34a'], ['31-60', '#d97706'], ['61-90', '#ea580c'], ['90+', '#dc2626']]
 const lc = (s) => String(s || '').toLowerCase()
 const phoneOf = (p) => p && (p.phone || p.phone2)
@@ -156,13 +157,13 @@ function Margins({ fys }) {
   useEffect(() => {
     if (!fy) return
     setRows(null)
-    fetchAll('fy_product_monthly', 'product,company,amount,cost', (q) => q.eq('fy', fy)).then(setRows).catch(() => setRows([]))
+    fetchAll('fy_product_monthly', 'product,company,amount,amount_ex,cost', (q) => q.eq('fy', fy)).then(setRows).catch(() => setRows([]))
   }, [fy])
   const { items, sales, cost } = useMemo(() => {
     const m = new Map(); let s = 0, c = 0
     ;(rows || []).forEach((r) => {
       const k = (by === 'company' ? r.company : r.product) || 'Other', e = m.get(k) || { a: 0, c: 0 }
-      e.a += Number(r.amount); e.c += Number(r.cost) || 0; m.set(k, e); s += Number(r.amount); c += Number(r.cost) || 0
+      const am = Number(r.amount_ex) || Number(r.amount); e.a += am; e.c += Number(r.cost) || 0; m.set(k, e); s += am; c += Number(r.cost) || 0
     })
     return { items: [...m.entries()].map(([k, e]) => ({ k, m: e.a - e.c, pct: e.a ? ((e.a - e.c) / e.a) * 100 : 0, a: e.a })).sort((x, y) => y.m - x.m).slice(0, 15), sales: s, cost: c }
   }, [rows, by])
@@ -178,7 +179,7 @@ function Margins({ fys }) {
       {rows && cost > 0 && (
         <>
           <div className="total"><span>Estimated margin, {fy}</span><b>{L(sales - cost)}</b><span>{(((sales - cost) / sales) * 100).toFixed(1)}%</span></div>
-          <p className="count muted">Estimate: bill value minus batch cost price. Check one product against your own figures.</p>
+          <p className="count muted">Estimate: sales before GST minus batch cost price. Check one product against your own figures.</p>
           <div className="chartcard"><ul className="bars">{items.map((i) => (
             <li key={i.k}><div className="bl"><span>{i.k}</span><b>{L(i.m)} · {i.pct.toFixed(0)}%</b></div><div className="bt"><div className="bf" style={{ width: Math.max(0, (i.m / mx) * 100) + '%' }} /></div></li>
           ))}</ul></div>
@@ -208,6 +209,7 @@ export default function Insights() {
       <div className="qchips">{TABS.map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}</div>
       <div style={{ marginTop: 12 }}>
         {tab === 'overview' && <Analysis stock={stock} parties={parties} fys={fys} latest={latest} />}
+        {tab === 'reports' && <Reports />}
         {tab === 'trends' && <Trends />}
         {tab === 'reorder' && <Reorder stock={stock} latest={latest} />}
         {tab === 'slow' && <Slow stock={stock} />}

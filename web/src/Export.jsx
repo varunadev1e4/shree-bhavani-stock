@@ -6,7 +6,7 @@ export default function ExportBar({ build }) {
   const [busy, setBusy] = useState('')
   const run = async (kind) => {
     setBusy(kind)
-    try { const d = build(); await (kind === 'pdf' ? exportPdf(d) : exportXlsx(d)) } catch (e) { alert('Could not make the file: ' + e.message) }
+    try { const d = build(); await (kind === 'pdf' ? exportPdf(d) : exportXlsx(d.xlsx ? { ...d, ...d.xlsx } : d)) } catch (e) { alert('Could not make the file: ' + e.message) }
     setBusy('')
   }
   return (

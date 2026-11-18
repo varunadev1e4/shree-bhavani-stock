@@ -45,7 +45,7 @@ try {
     $monthly.Add([ordered]@{ fy = $Fy; ym = $ym; kind = ([string]$r["tt"]).Trim(); bills = [int]$r["n"]; amount = [Math]::Round([double]$r["amt"], 2) })
   }
   $prod = New-Object System.Collections.Generic.List[object]
-  $sqlP = "SELECT $ymT AS ym, p.[Name] AS pn, c.[Name] AS cn, SUM(i.Qty) AS q, SUM(i.ProValue) AS amt, SUM((i.Qty + IIf(IsNull(i.Free),0,i.Free)) * IIf(IsNull(b.CostPrice),0,b.CostPrice)) AS cst FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY $ymT, p.[Name], c.[Name]"
+  $sqlP = "SELECT $ymT AS ym, p.[Name] AS pn, c.[Name] AS cn, SUM(i.Qty) AS q, SUM(i.ProValue) AS amt, SUM(i.ProValue / (1 + IIf(IsNull(i.GstPer),0,i.GstPer) / 100)) AS amtx, SUM((i.Qty + IIf(IsNull(i.Free),0,i.Free)) * IIf(IsNull(b.CostPrice),0,b.CostPrice)) AS cst FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY $ymT, p.[Name], c.[Name]"
   foreach ($r in (Rows $sqlP).Rows) {
     if ($r["ym"] -is [DBNull] -or $r["pn"] -is [DBNull]) { continue }
     $ym = [int]$r["ym"]; if ($ym -lt $lo -or $ym -gt $hi) { continue }
@@ -53,7 +53,8 @@ try {
     $q = if ($r["q"] -is [DBNull]) { 0 } else { [double]$r["q"] }
     $a = if ($r["amt"] -is [DBNull]) { 0 } else { [double]$r["amt"] }
     $ct = if ($r["cst"] -is [DBNull]) { 0 } else { [double]$r["cst"] }
-    $prod.Add([ordered]@{ fy = $Fy; ym = $ym; product = ([string]$r["pn"]).Trim(); company = $cn; qty = [Math]::Round($q, 2); amount = [Math]::Round($a, 2); cost = [Math]::Round($ct, 2) })
+    $ax = if ($r["amtx"] -is [DBNull]) { 0 } else { [double]$r["amtx"] }
+    $prod.Add([ordered]@{ fy = $Fy; ym = $ym; product = ([string]$r["pn"]).Trim(); company = $cn; qty = [Math]::Round($q, 2); amount = [Math]::Round($a, 2); cost = [Math]::Round($ct, 2); amount_ex = [Math]::Round($ax, 2) })
   }
   $party = New-Object System.Collections.Generic.List[object]
   foreach ($r in (Rows "SELECT $ymA AS ym, a.[Name] AS pn, SUM(h.NetAmt) AS amt FROM AccHead h INNER JOIN Accounts a ON h.AccId=a.RndId WHERE h.TranType='S' GROUP BY $ymA, a.[Name]").Rows) {
@@ -61,7 +62,19 @@ try {
     $ym = [int]$r["ym"]; if ($ym -lt $lo -or $ym -gt $hi) { continue }
     $party.Add([ordered]@{ fy = $Fy; ym = $ym; party = ([string]$r["pn"]).Trim(); amount = [Math]::Round([double]$r["amt"], 2) })
   }
-  Write-Host ("{0}: {1} monthly rows, {2} product rows, {3} party rows" -f $Fy, $monthly.Count, $prod.Count, $party.Count)
+  # Every bill line (sales and purchases) so reports can be made for any dates
+  function S($v) { if ($v -is [DBNull]) { "" } else { ([string]$v).Trim() } }
+  function N($v) { if ($v -is [DBNull]) { 0.0 } else { [Math]::Round([double]$v, 2) } }
+  $lines = New-Object System.Collections.Generic.List[object]
+  $sqlL = "SELECT m.InvDate AS d, m.FeedNo AS bn, m.TranType AS tt, m.Terms AS tm, a.[Name] AS pn, a.City AS cty, p.[Name] AS prd, c.[Name] AS cmp, i.Qty AS q, i.Free AS fr, i.ProValue AS amt, i.GstPer AS gp FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Accounts a ON m.AccId=a.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId WHERE m.TranType IN ('S','P')"
+  foreach ($r in (Rows $sqlL).Rows) {
+    if ($r["d"] -is [DBNull]) { continue }
+    $dt = [datetime]$r["d"]; $ym = $dt.Year * 100 + $dt.Month
+    if ($ym -lt $lo -or $ym -gt $hi) { continue }
+    $lines.Add([ordered]@{ fy = $Fy; kind = (S $r["tt"]); d = $dt.ToString("yyyy-MM-dd"); bill_no = (S $r["bn"]); party = (S $r["pn"]); city = (S $r["cty"]); company = $(if ((S $r["cmp"]) -eq "") { "Other" } else { S $r["cmp"] }); product = (S $r["prd"])
+      qty = (N $r["q"]); free = (N $r["fr"]); amount = (N $r["amt"]); gst = (N $r["gp"]); terms = $(if ($r["tm"] -is [DBNull]) { 1 } else { [int]$r["tm"] }) })
+  }
+  Write-Host ("{0}: {1} monthly rows, {2} product rows, {3} party rows, {4} bill lines" -f $Fy, $monthly.Count, $prod.Count, $party.Count, $lines.Count)
   if ($monthly.Count -eq 0) { throw "No transactions found for $Fy (check the file)" }
 
   function Replace-Table($table, $rows) {
@@ -75,6 +88,7 @@ try {
   Replace-Table "fy_monthly" $monthly
   Replace-Table "fy_product_monthly" $prod
   Replace-Table "fy_party_monthly" $party
+  Replace-Table "sales_lines" $lines
   Write-Host "History uploaded for $Fy"
 }
 finally {
