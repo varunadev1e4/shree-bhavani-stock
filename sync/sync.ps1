@@ -94,53 +94,39 @@ try {
 
   $parties = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], City, Cell, Phone, OpBal, SubGroupId, Deleted FROM Accounts WHERE SubGroupId IN (2,3)") ([ordered]@{
     RndId = "id"; Code = "code"; Name = "name"; City = "city"; Cell = "phone"; Phone = "phone2"; OpBal = "cur_bal"; SubGroupId = "group_id"; Deleted = "deleted" }) $syncId
-  # Receivable = opening (if owed to us) + sales - returns - receipts. Payable = opening (if we owe) + purchases - payments.
-  function V($v, $t) { if ($v -and $v.ContainsKey($t)) { [double]$v[$t] } else { 0.0 } }
-  # Cash bills (payment terms = cash in Profit Maker) are paid on the spot, so they are left out of what customers owe.
-  $cashKeys = @{}
-  foreach ($r in (Get-Rows "SELECT AccId, FeedNo FROM TranMain WHERE TranType='S' AND Terms = 0").Rows) {
-    $cashKeys[([string]$r["AccId"] + "|" + ([string]$r["FeedNo"]).Trim())] = $true
-  }
-  $mv = @{}
-  foreach ($r in (Get-Rows "SELECT AccId, TranType, SUM(NetAmt) AS amt FROM AccHead WHERE TranType <> 'S' GROUP BY AccId, TranType").Rows) {
-    if ($r["amt"] -is [DBNull]) { continue }
+  # Dues are worked out bill by bill, the same way Profit Maker's Receivables and Payables reports do:
+  # every CREDIT bill (payment terms = credit) with a balance left. Cash bills are left out.
+  $recvMap = @{}; $payMap = @{}; $ageMap = @{}; $today = (Get-Date).Date
+  foreach ($r in (Get-Rows "SELECT AccId, TranType, InvDate, NetAmt, PaidAmt FROM TranMain WHERE TranType IN ('S','P') AND Terms = 1").Rows) {
+    if ($r["NetAmt"] -is [DBNull]) { continue }
+    $paid = if ($r["PaidAmt"] -is [DBNull]) { 0.0 } else { [double]$r["PaidAmt"] }
+    $o = [double]$r["NetAmt"] - $paid
+    if ($o -le 0.5) { continue }
     $k = [string]$r["AccId"]
-    if (-not $mv.ContainsKey($k)) { $mv[$k] = @{} }
-    $mv[$k][([string]$r["TranType"]).Trim()] = [double]$r["amt"]
+    if (([string]$r["TranType"]).Trim() -eq "S") {
+      $recvMap[$k] = $(if ($recvMap.ContainsKey($k)) { $recvMap[$k] } else { 0.0 }) + $o
+      $age = if ($r["InvDate"] -is [DBNull]) { 999 } else { ($today - ([datetime]$r["InvDate"]).Date).Days }
+      $bi = if ($age -le 30) { 0 } elseif ($age -le 60) { 1 } elseif ($age -le 90) { 2 } else { 3 }
+      if (-not $ageMap.ContainsKey($k)) { $ageMap[$k] = @(0.0, 0.0, 0.0, 0.0) }
+      $ageMap[$k][$bi] += $o
+    } else {
+      $payMap[$k] = $(if ($payMap.ContainsKey($k)) { $payMap[$k] } else { 0.0 }) + $o
+    }
   }
-  # Sale vouchers per party, newest first. Credit bills count towards what they owe and the ageing; the last bill date includes cash bills.
-  $svMap = @{}; $lastMap = @{}
-  foreach ($r in (Get-Rows "SELECT AccId, FeedNo, FeedDate, NetAmt FROM AccHead WHERE TranType='S' AND NetAmt > 0 ORDER BY AccId, FeedDate DESC").Rows) {
-    if ($r["FeedDate"] -is [DBNull] -or $r["NetAmt"] -is [DBNull]) { continue }
-    $k = [string]$r["AccId"]; $dt = [datetime]$r["FeedDate"]
-    if (-not $lastMap.ContainsKey($k)) { $lastMap[$k] = $dt.ToString("yyyy-MM-dd") }
-    if ($cashKeys.ContainsKey($k + "|" + ([string]$r["FeedNo"]).Trim())) { continue }
-    if (-not $mv.ContainsKey($k)) { $mv[$k] = @{} }
-    $mv[$k]["S"] = (V $mv[$k] "S") + [double]$r["NetAmt"]
-    if (-not $svMap.ContainsKey($k)) { $svMap[$k] = New-Object System.Collections.Generic.List[object] }
-    $svMap[$k].Add(@($dt, [double]$r["NetAmt"]))
+  # Last bill date per customer (cash bills count here)
+  $lastMap = @{}
+  foreach ($r in (Get-Rows "SELECT AccId, MAX(InvDate) AS d FROM TranMain WHERE TranType='S' GROUP BY AccId").Rows) {
+    if ($r["d"] -isnot [DBNull]) { $lastMap[[string]$r["AccId"]] = ([datetime]$r["d"]).ToString("yyyy-MM-dd") }
   }
-  $today = (Get-Date).Date
   foreach ($p in $parties) {
-    $op = [double]$p["cur_bal"]
-    $v = $mv[[string]$p["id"]]
-    # Kept separate on purpose: what they owe us, and what we owe them.
-    $recv = [Math]::Max($op, 0) + (V $v "S") - (V $v "SR") - (V $v "RS")
-    $pay  = [Math]::Max(-$op, 0) + (V $v "P") - (V $v "PA") - (V $v "PR")
+    $k = [string]$p["id"]
+    $recv = if ($recvMap.ContainsKey($k)) { $recvMap[$k] } else { 0.0 }
+    $pay = if ($payMap.ContainsKey($k)) { $payMap[$k] } else { 0.0 }
+    $b = if ($ageMap.ContainsKey($k)) { $ageMap[$k] } else { @(0.0, 0.0, 0.0, 0.0) }
     $p["receivable"] = [Math]::Round($recv, 2)
     $p["payable"] = [Math]::Round($pay, 2)
     $p["cur_bal"] = [Math]::Round($recv - $pay, 2)
-    # Ageing: what they owe is matched against their newest bills first; anything older is 90+
-    $b = @(0.0, 0.0, 0.0, 0.0); $rem = [Math]::Max($recv, 0); $last = $null
-    foreach ($sv in $svMap[[string]$p["id"]]) {
-      if ($rem -le 0) { continue }
-      $take = [Math]::Min($rem, $sv[1]); $rem -= $take
-      $age = ($today - $sv[0].Date).Days
-      $i = if ($age -le 30) { 0 } elseif ($age -le 60) { 1 } elseif ($age -le 90) { 2 } else { 3 }
-      $b[$i] += $take
-    }
-    $b[3] += $rem
-    $p["last_sale"] = $lastMap[[string]$p["id"]]
+    $p["last_sale"] = $lastMap[$k]
     $p["age_30"] = [Math]::Round($b[0], 2); $p["age_60"] = [Math]::Round($b[1], 2)
     $p["age_90"] = [Math]::Round($b[2], 2); $p["age_90p"] = [Math]::Round($b[3], 2)
   }
