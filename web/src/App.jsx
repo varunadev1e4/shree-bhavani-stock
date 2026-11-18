@@ -287,16 +287,28 @@ function Shell() {
   const [tab, setTab] = useState('home')
   const [seen, setSeen] = useState({ home: true })
   const [off, setOff] = useState(!navigator.onLine)
+  const [rev, setRev] = useState(0)
+  const [stale, setStale] = useState(false)
+  // Reload the data when the app comes back to the screen after a while, and every 10 minutes while open
+  useEffect(() => {
+    let hiddenAt = 0
+    const bump = () => { setStale(false); setRev((r) => r + 1) }
+    const vis = () => { if (document.hidden) hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > 120000) bump() }
+    const iv = setInterval(() => { if (!document.hidden) bump() }, 600000)
+    const st = () => setStale(true)
+    document.addEventListener('visibilitychange', vis); window.addEventListener('sb-stale', st)
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('sb-stale', st) }
+  }, [])
   useEffect(() => { const f = () => setOff(!navigator.onLine); window.addEventListener('online', f); window.addEventListener('offline', f); return () => { window.removeEventListener('online', f); window.removeEventListener('offline', f) } }, [])
   const go = (t) => { setTab(t); setSeen((s) => ({ ...s, [t]: true })); window.scrollTo(0, 0) }
   return (
     <>
-      {off && <div className="offbar">Offline: showing last saved data</div>}
-      <div hidden={tab !== 'home'}><Home go={go} /></div>
-      {seen.stock && <div hidden={tab !== 'stock'}><Stock /></div>}
-      {seen.expiry && <div hidden={tab !== 'expiry'}><Expiry /></div>}
-      {seen.parties && <div hidden={tab !== 'parties'}><Parties /></div>}
-      {seen.insights && <div hidden={tab !== 'insights'}><Insights /></div>}
+      {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
+      <div key={rev} hidden={tab !== 'home'}><Home go={go} /></div>
+      {seen.stock && <div key={rev} hidden={tab !== 'stock'}><Stock /></div>}
+      {seen.expiry && <div key={rev} hidden={tab !== 'expiry'}><Expiry /></div>}
+      {seen.parties && <div key={rev} hidden={tab !== 'parties'}><Parties /></div>}
+      {seen.insights && <div key={rev} hidden={tab !== 'insights'}><Insights /></div>}
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['insights', 'Insights']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>

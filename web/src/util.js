@@ -45,7 +45,7 @@ export async function cached(key, fn) {
     return d
   } catch (e) {
     const s = localStorage.getItem('sb:' + key)
-    if (s) return JSON.parse(s)
+    if (s) { window.dispatchEvent(new Event('sb-stale')); return JSON.parse(s) }
     throw e
   }
 }
