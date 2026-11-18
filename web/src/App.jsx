@@ -3,7 +3,8 @@ import { supabase } from './supabase'
 import Expiry from './Expiry'
 import Parties from './Parties'
 import Insights from './Insights'
-import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync } from './util'
+import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, APP, SHOP } from './util'
+import { Mark } from './Logo'
 
 const SORTS = { name: 'A to Z', qtyDesc: 'Stock: high to low', qtyAsc: 'Stock: low to high', expiry: 'Expiry: soonest' }
 const PAGE = 40
@@ -31,7 +32,7 @@ function Login() {
   }
   return (
     <div className="loginwrap"><div className="login">
-      <div className="logo">SB</div><h1>Shree Bhavani</h1><p className="muted">Medical Distribution Agency</p>
+      <Mark size={76} id="login" /><h1>{APP}</h1><p className="muted">{SHOP}</p>
       <form onSubmit={submit}>
         <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -77,7 +78,7 @@ function Home({ go }) {
   return (
     <div className="app">
       <header className="top">
-        <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">Shree Bhavani</h1>
+        <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">{APP}</h1>
           {d && <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>}</div>
         <div className="actions"><button className="icon" onClick={load} aria-label="Refresh">{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
       </header>

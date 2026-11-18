@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchAll, rs, addYm, waLink } from './util'
+import { fetchAll, rs, addYm, waLink, SHOP } from './util'
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const AGE = [['0-30', '#16a34a'], ['31-60', '#d97706'], ['61-90', '#ea580c'], ['90+', '#dc2626']]
@@ -29,7 +29,7 @@ export default function Customer({ p, onClose }) {
       {ph && (
         <div className="btnrow">
           <a className="ghost sm" href={'tel:' + ph.replace(/\D/g, '')}>Call {ph}</a>
-          <a className="ghost sm" target="_blank" rel="noreferrer" href={waLink(ph, 'Hello ' + p.name + ', greetings from Shree Bhavani Medical Distribution Agency.')}>WhatsApp</a>
+          <a className="ghost sm" target="_blank" rel="noreferrer" href={waLink(ph, 'Hello ' + p.name + ', greetings from ' + SHOP + '.')}>WhatsApp</a>
         </div>
       )}
       <div className="minis" style={{ marginTop: 14 }}>

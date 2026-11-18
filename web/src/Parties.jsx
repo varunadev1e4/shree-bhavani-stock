@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchAll, rs, waLink } from './util'
+import { fetchAll, rs, waLink, SHOP } from './util'
 import Customer from './Customer'
 
 export default function Parties() {
@@ -73,7 +73,7 @@ export default function Parties() {
                   {ph ? <a className="ghost" href={'tel:' + ph.replace(/\D/g, '')}>Call {ph}</a> : <span className="muted">No phone saved</span>}
                   {ph && side === 'recv' && amt > 0.5 && (
                     <a className="ghost" target="_blank" rel="noreferrer"
-                      href={waLink(ph, 'Dear ' + p.name + ', this is a gentle reminder from Shree Bhavani Medical Distribution Agency. Your outstanding balance is ' + rs(amt) + '. Kindly arrange the payment. Thank you.')}>WhatsApp reminder</a>
+                      href={waLink(ph, 'Dear ' + p.name + ', this is a gentle reminder from ' + SHOP + '. Your outstanding balance is ' + rs(amt) + '. Kindly arrange the payment. Thank you.')}>WhatsApp reminder</a>
                   )}
                 </div>
               )}

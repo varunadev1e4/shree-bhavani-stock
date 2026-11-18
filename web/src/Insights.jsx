@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchAll, rs, num, fmtExp, expState, waLink, L, addYm } from './util'
+import { fetchAll, rs, num, fmtExp, expState, waLink, L, addYm, SHOP } from './util'
 import Trends from './Trends'
 import Analysis from './Analysis'
 
@@ -110,7 +110,7 @@ function Quiet({ latest, parties }) {
         return (
           <li key={e.k} className="card s-soon"><div className="row static">
             <div className="info"><div className="name">{e.k}</div><div className="meta"><span>Before {L(e.prev)}</span><span>Now {L(e.now)}</span></div>
-              <Contact ph={phoneOf(p)} msg={'Hello ' + e.k + ', we have not seen an order from you lately. Is there anything we can help with? - Shree Bhavani Medical Distribution Agency'} /></div>
+              <Contact ph={phoneOf(p)} msg={'Hello ' + e.k + ', we have not seen an order from you lately. Is there anything we can help with? - ' + SHOP + ''} /></div>
             <div className="qty"><b style={{ color: 'var(--bad)' }}>-{drop}%</b><small>buying</small></div></div></li>
         )
       })}</ul>
@@ -135,7 +135,7 @@ function Overdue({ parties }) {
             <div className="name">{p.name}</div>
             <div className="stack">{a.map((v, i) => v > 0 && <i key={i} style={{ width: (v / t) * 100 + '%', background: AGE[i][1] }} />)}</div>
             <div className="meta"><span>90+: {rs(a[3])}</span><span>61-90: {rs(a[2])}</span></div>
-            <Contact ph={phoneOf(p)} msg={'Dear ' + p.name + ', this is a gentle reminder from Shree Bhavani Medical Distribution Agency. Your outstanding balance is ' + rs(p.receivable) + '. Kindly arrange the payment. Thank you.'} />
+            <Contact ph={phoneOf(p)} msg={'Dear ' + p.name + ', this is a gentle reminder from ' + SHOP + '. Your outstanding balance is ' + rs(p.receivable) + '. Kindly arrange the payment. Thank you.'} />
           </div><div className="amt due">{rs(p.receivable)}</div></div></li>
         )
       })}</ul>
