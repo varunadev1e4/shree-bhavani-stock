@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, num, SHOP, GSTIN } from './util'
 import { exportPdf, xlsxBlob, deliverMany } from './exporter'
+import MonthPick, { curYm } from './MonthPick'
+import { staffCost } from './staffcalc'
 import { salesRegister, purchaseRegister, hsnReport, gstSummary, dmy } from './gst'
 
 const pad = (v) => String(v).padStart(2, '0')
-const monthList = () => {
-  const t = new Date(), out = []
-  for (let i = 0; i < 24; i++) { const d = new Date(t.getFullYear(), t.getMonth() - i, 1); out.push(d.getFullYear() * 100 + d.getMonth() + 1) }
-  return out
-}
 const ymLabel = (ym) => new Date(Math.floor(ym / 100), (ym % 100) - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
 const span = (ym) => { const y = Math.floor(ym / 100), m = ym % 100, last = new Date(y, m, 0).getDate(); return { from: y + '-' + pad(m) + '-01', to: y + '-' + pad(m) + '-' + pad(last), days: last } }
 const prevYm = (ym) => (ym % 100 === 1 ? (Math.floor(ym / 100) - 1) * 100 + 12 : ym - 1)
@@ -28,8 +25,7 @@ function metrics(bills, fp, days) {
 }
 
 export default function CA() {
-  const months = useMemo(monthList, [])
-  const [ym, setYm] = useState(() => months[1])
+  const [ym, setYm] = useState(() => prevYm(curYm())) // last full month
   const [bills, setBills] = useState(null)
   const [prev, setPrev] = useState([])
   const [hsn, setHsn] = useState([])
@@ -37,6 +33,10 @@ export default function CA() {
   const [fpPrev, setFpPrev] = useState([])
   const [stock, setStock] = useState([])
   const [parties, setParties] = useState([])
+  const [exp, setExp] = useState([])
+  const [expPrev, setExpPrev] = useState([])
+  const [emps, setEmps] = useState([])
+  const [ents, setEnts] = useState([])
   const [busy, setBusy] = useState('')
   const sp = span(ym), sq = span(prevYm(ym))
 
@@ -52,7 +52,11 @@ export default function CA() {
       g('fy_product_monthly', 'amount_ex,cost', (q) => q.eq('ym', prevYm(ym)), 'fpp:' + ym),
       g('stock_summary', 'total_qty,cost_price'),
       g('parties', 'receivable,payable,deleted'),
-    ]).then(([b, p, h, f, fpv, s, pa]) => { if (stale) return; setBills(b); setPrev(p); setHsn(h); setFp(f); setFpPrev(fpv); setStock(s); setParties(pa) })
+      g('expenses', 'amount', (q) => q.gte('d', sp.from).lte('d', sp.to), 'ex:' + ym),
+      g('expenses', 'amount', (q) => q.gte('d', sq.from).lte('d', sq.to), 'exp:' + ym),
+      g('employees', '*', null, 'emps'),
+      g('emp_entries', '*', null, 'ents'),
+    ]).then(([b, p, h, f, fpv, s, pa, e1, e0, em, en]) => { if (stale) return; setBills(b); setPrev(p); setHsn(h); setFp(f); setFpPrev(fpv); setStock(s); setParties(pa); setExp(e1); setExpPrev(e0); setEmps(em); setEnts(en) })
     return () => { stale = true }
   }, [ym])
 
@@ -87,10 +91,13 @@ export default function CA() {
     filename: 'gst-summary-' + tag, columns: ['', 'Taxable value', 'CGST', 'SGST', 'IGST', 'Total GST'], numCols: [1, 2, 3, 4, 5], bold: [2],
     rows: gstRows.map((r) => [r[0], ...r.slice(1).map(money)]) }))
 
+  const xNow = exp.reduce((s, r) => s + Number(r.amount), 0), xOld = expPrev.reduce((s, r) => s + Number(r.amount), 0)
+  const sNow = staffCost(emps, ents, ym), sOld = staffCost(emps, ents, prevYm(ym))
   const rows = cur ? [
     ['Sales (with GST)', cur.sales, old.sales, 'rs'], ['Purchases (with GST)', cur.purch, old.purch, 'rs'], ['Bills made', cur.bills, old.bills, 'n'],
     ['Average bill', cur.avg, old.avg, 'rs'], ['Customers billed', cur.parties, old.parties, 'n'],
     ['Gross profit (sales less cost)', cur.gp, old.gp, 'rs'], ['Gross margin %', cur.gpPct, old.gpPct, 'p'],
+    ['Shop expenses', xNow, xOld, 'rs'], ['Staff salary cost', sNow, sOld, 'rs'], ['Profit after expenses', cur.gp - xNow - sNow, old.gp - xOld - sOld, 'rs'],
   ] : []
   const fmt = (v, t) => (t === 'rs' ? rs(v) : t === 'p' ? (Number.isFinite(v) ? v.toFixed(1) + '%' : '-') : num(v))
   const healthPdf = () => run('hp', () => exportPdf({ title: 'Business summary ' + ymLabel(ym), subtitle: SHOP, filename: 'business-summary-' + tag,
@@ -110,7 +117,7 @@ export default function CA() {
   return (
     <>
       <p className="muted small" style={{ margin: '0 0 8px' }}>The four files you send your CA, made from your data, plus a GST summary and how the firm is doing.</p>
-      <select className="fsel" style={{ width: '100%', marginBottom: 10 }} value={ym} onChange={(e) => setYm(Number(e.target.value))}>{months.map((m) => <option key={m} value={m}>{ymLabel(m)}</option>)}</select>
+      <MonthPick ym={ym} onChange={setYm} />
       {!bills && <p className="muted pad">Loading...</p>}
       {none && <div className="empty"><b>No bills for {ymLabel(ym)}</b><span>Run migration-9 in Supabase, then load the year once (delete history.last and run run-sync.bat, or run history.ps1 for older years).</span></div>}
       {bills && !none && (
@@ -137,7 +144,7 @@ export default function CA() {
           </div>
           {insights.map(([h, t]) => <div key={h} className="chartcard" style={{ marginTop: 10 }}><b>{h}</b><p className="muted small" style={{ margin: '4px 0 0' }}>{t}</p></div>)}
           <div className="btnrow"><button className="ghost sm" disabled={!!busy} onClick={healthPdf}>Share business summary PDF</button></div>
-          <p className="muted small">Gross profit uses the cost price of what was sold. Stock days and collection days use today's stock and dues.</p>
+          <p className="muted small">Profit after expenses is gross profit less the Expenses and Staff you recorded in this app. {xNow + sNow === 0 ? 'Nothing is recorded for this month yet, so it equals gross profit. ' : ''}Gross profit uses the cost price of what was sold. Stock days and collection days use today's stock and dues.</p>
         </>
       )}
     </>
