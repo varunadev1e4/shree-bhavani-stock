@@ -66,13 +66,15 @@ try {
   function S($v) { if ($v -is [DBNull]) { "" } else { ([string]$v).Trim() } }
   function N($v) { if ($v -is [DBNull]) { 0.0 } else { [Math]::Round([double]$v, 2) } }
   $lines = New-Object System.Collections.Generic.List[object]
-  $sqlL = "SELECT m.InvDate AS d, m.FeedNo AS bn, m.TranType AS tt, m.Terms AS tm, a.[Name] AS pn, a.City AS cty, p.[Name] AS prd, c.[Name] AS cmp, i.Qty AS q, i.Free AS fr, i.TaxValue AS amt, i.GstPer AS gp FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Accounts a ON m.AccId=a.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId WHERE m.TranType IN ('S','P')"
+  $sqlL = "SELECT m.InvDate AS d, m.FeedNo AS bn, m.TranType AS tt, m.Terms AS tm, a.[Name] AS pn, a.City AS cty, p.[Name] AS prd, c.[Name] AS cmp, i.Qty AS q, i.Free AS fr, i.TaxValue AS tv, i.ProValue AS pv, i.DisPer AS dp, i.Rate AS rt, i.GstPer AS gp, p.Packing AS pk, b.BatchNo AS bno, a.[Code] AS cd FROM (((((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Accounts a ON m.AccId=a.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId) WHERE m.TranType IN ('S','P')"
   foreach ($r in (Rows $sqlL).Rows) {
     if ($r["d"] -is [DBNull]) { continue }
     $dt = [datetime]$r["d"]; $ym = $dt.Year * 100 + $dt.Month
     if ($ym -lt $lo -or $ym -gt $hi) { continue }
     $lines.Add([ordered]@{ fy = $Fy; kind = (S $r["tt"]); d = $dt.ToString("yyyy-MM-dd"); bill_no = (S $r["bn"]); party = (S $r["pn"]); city = (S $r["cty"]); company = $(if ((S $r["cmp"]) -eq "") { "Other" } else { S $r["cmp"] }); product = (S $r["prd"])
-      qty = (N $r["q"]); free = (N $r["fr"]); amount = (N $r["amt"]); gst = (N $r["gp"]); terms = $(if ($r["tm"] -is [DBNull]) { 1 } else { [int]$r["tm"] }) })
+      qty = (N $r["q"]); free = (N $r["fr"]); gst = (N $r["gp"]); pack = (S $r["pk"]); batch = (S $r["bno"]); rate = (N $r["rt"]); dis = (N $r["dp"]); party_code = (S $r["cd"]).TrimStart('0')
+      # value after discount, before GST (sales: TaxValue; purchase bills keep TaxValue empty, so use rate x qty less discount)
+      amount = $(if ((S $r["tt"]) -eq "P") { [Math]::Round((N $r["pv"]) * (1 - (N $r["dp"]) / 100), 2) } else { N $r["tv"] }); terms = $(if ($r["tm"] -is [DBNull]) { 1 } else { [int]$r["tm"] }) })
   }
   # GST registers (bill by bill) and HSN totals, for the CA reports. Interstate = party GSTIN does not start with the home state code.
   $homeSt = if ($cfg.PSObject.Properties["home_state"] -and $cfg.home_state) { [string]$cfg.home_state } else { "36" }

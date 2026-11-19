@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, num } from './util'
 import ExportBar from './Export'
+import FullReport from './FullReport'
 
 const DIMS = { company: 'Company', party: 'Customer', product: 'Product', city: 'City', month: 'Month', day: 'Day', bill: 'Bill' }
 const QUICK = [['Customer-wise', ['party']], ['Company-wise', ['company']], ['Product-wise', ['product']], ['Company, then customer', ['company', 'party']], ['Customer, then company', ['party', 'company']], ['Company, then product', ['company', 'product']], ['City, then customer', ['city', 'party']], ['Day-wise', ['day']], ['Month-wise', ['month']]]
@@ -20,12 +21,12 @@ function range(p) {
 }
 
 function aggregate(rows, dims, val) {
-  const mk = (key) => ({ key, value: 0, qty: 0, bills: new Set(), kids: new Map() })
+  const mk = (key) => ({ key, value: 0, qty: 0, free: 0, bills: new Set(), kids: new Map() })
   const root = mk('')
   rows.forEach((r) => {
     let n = root; const path = [root]
     dims.forEach((d) => { const k = KEY[d](r); if (!n.kids.has(k)) n.kids.set(k, mk(k)); n = n.kids.get(k); path.push(n) })
-    path.forEach((x) => { x.value += val(r); x.qty += Number(r.qty) + (Number(r.free) || 0); x.bills.add(r.bill_no + '|' + r.party) })
+    path.forEach((x) => { x.value += val(r); x.qty += Number(r.qty); x.free += Number(r.free) || 0; x.bills.add(r.bill_no + '|' + r.party) })
   })
   return root
 }
@@ -33,13 +34,14 @@ function flatten(node, dims, depth = 0, out = [], prefix = []) {
   const asc = dims[depth] === 'month' || dims[depth] === 'day'
   ;[...node.kids.values()].sort(asc ? (a, b) => a.key.localeCompare(b.key) : (a, b) => b.value - a.value).forEach((k) => {
     const label = (LABEL[dims[depth]] || ((x) => x))(k.key), path = [...prefix, label]
-    out.push({ depth, label, path, value: k.value, qty: k.qty, bills: k.bills.size, leaf: depth === dims.length - 1 })
+    out.push({ depth, label, path, value: k.value, qty: k.qty, free: k.free, bills: k.bills.size, leaf: depth === dims.length - 1 })
     flatten(k, dims, depth + 1, out, path)
   })
   return out
 }
 
 export default function Reports() {
+  const [mode, setMode] = useState('sum')
   const [kind, setKind] = useState('S')
   const [preset, setPreset] = useState('month')
   const [[from, to], setDates] = useState(range('month'))
@@ -73,26 +75,30 @@ export default function Reports() {
 
   const tree = useMemo(() => aggregate(filtered, dims, val), [filtered, dims, exGst])
   const flat = useMemo(() => flatten(tree, dims), [tree, dims])
-  const tot = { value: tree.value, qty: tree.qty, bills: tree.bills.size }
+  const tot = { value: tree.value, qty: tree.qty, free: tree.free, bills: tree.bills.size }
   const name = kind === 'S' ? 'Sales' : 'Purchases'
   const dimNames = dims.map((d) => DIMS[d])
   const title = name + ' report: ' + (dimNames.join(' > ') || 'Total')
   const sub = fmtDay(from) + ' to ' + fmtDay(to) + (company ? ' | ' + company : '') + (text ? ' | "' + text + '"' : '') + (exGst ? ' | before GST' : ' | incl. GST') + (terms !== 'all' && kind === 'S' ? (Number(terms) === 1 ? ' | credit bills' : ' | cash bills') : '')
 
   const build = () => {
-    const pdf = flat.map((f) => ['   '.repeat(f.depth) + f.label, f.value, f.qty, f.bills, tot.value ? Math.round((f.value / tot.value) * 1000) / 10 + '%' : ''])
+    const pdf = flat.map((f) => ['   '.repeat(f.depth) + f.label, f.value, f.qty, f.free, f.bills, tot.value ? Math.round((f.value / tot.value) * 1000) / 10 + '%' : ''])
     const bold = flat.map((f, i) => (f.leaf ? -1 : i)).filter((i) => i >= 0)
-    pdf.push(['TOTAL', tot.value, tot.qty, tot.bills, '']); bold.push(pdf.length - 1)
+    pdf.push(['TOTAL', tot.value, tot.qty, tot.free, tot.bills, '']); bold.push(pdf.length - 1)
     const leaves = flat.filter((f) => f.leaf)
     return {
-      title, subtitle: sub, filename: name.toLowerCase() + '-report', columns: ['Name', 'Value (Rs)', 'Qty', 'Bills', 'Share'], rows: pdf, bold, numCols: [1, 2, 3, 4],
-      xlsx: { columns: [...dimNames, 'Value (Rs)', 'Qty', 'Bills'], rows: [...leaves.map((f) => [...f.path, f.value, f.qty, f.bills]), [...dimNames.map((_, i) => (i === 0 ? 'TOTAL' : '')), tot.value, tot.qty, tot.bills]] },
+      title, subtitle: sub, filename: name.toLowerCase() + '-report', columns: ['Name', 'Value (Rs)', 'Qty', 'Free', 'Bills', 'Share'], rows: pdf, bold, numCols: [1, 2, 3, 4, 5],
+      xlsx: { columns: [...dimNames, 'Value (Rs)', 'Qty', 'Free', 'Bills'], rows: [...leaves.map((f) => [...f.path, f.value, f.qty, f.free, f.bills]), [...dimNames.map((_, i) => (i === 0 ? 'TOTAL' : '')), tot.value, tot.qty, tot.free, tot.bills]] },
     }
   }
   const setDim = (i, v) => setDims((d) => { const n = [...d]; if (v) n[i] = v; else n.splice(i); return n.filter((x, j) => n.indexOf(x) === j) })
 
+  const modeSeg = <div className="seg" style={{ width: 'fit-content', marginBottom: 10 }}>{[['sum', 'Summary'], ['full', 'Full lines (Profit Maker style)']].map(([k, l]) => <button key={k} className={mode === k ? 'on' : ''} onClick={() => setMode(k)}>{l}</button>)}</div>
+  if (mode === 'full') return <>{modeSeg}<FullReport /></>
+
   return (
     <>
+      {modeSeg}
       <div className="seg" style={{ width: 'fit-content' }}>{[['S', 'Sales'], ['P', 'Purchases']].map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{l}</button>)}</div>
       <div className="qchips">{PRESETS.map(([k, l]) => <button key={k} className={'qc' + (preset === k ? ' on' : '')} onClick={() => pick(k)}>{l}</button>)}</div>
       {preset === 'custom' && <div className="dates"><input type="date" value={from} max={to} onChange={(e) => setDates([e.target.value, to])} /><input type="date" value={to} min={from} onChange={(e) => setDates([from, e.target.value])} /></div>}
@@ -117,19 +123,19 @@ export default function Reports() {
         <>
           <div className="minis" style={{ marginTop: 12 }}>
             <div className="mini"><span>{name} value</span><b>{rs(tot.value)}</b></div>
-            <div className="mini"><span>Quantity</span><b>{num(tot.qty)}</b></div>
+            <div className="mini"><span>Qty + free</span><b>{num(tot.qty)} + {num(tot.free)}</b></div>
             <div className="mini"><span>Bills</span><b>{tot.bills}</b></div>
           </div>
           <div style={{ margin: '12px 0 4px' }}><ExportBar build={build} /></div>
           <div className="chartcard" style={{ padding: 0, overflowX: 'auto' }}>
             <table className="rtable">
-              <thead><tr><th>{dimNames.join(' > ') || 'Total'}</th><th>Value</th><th>Qty</th><th>Bills</th></tr></thead>
+              <thead><tr><th>{dimNames.join(' > ') || 'Total'}</th><th>Value</th><th>Qty</th><th>Free</th><th>Bills</th></tr></thead>
               <tbody>
                 {flat.slice(0, limit).map((f, i) => (
                   <tr key={i} className={f.depth === 0 && dims.length > 1 ? 'g' : ''}>
-                    <td style={{ paddingLeft: 10 + f.depth * 16 }}>{f.label}</td><td>{Math.round(f.value).toLocaleString('en-IN')}</td><td>{num(f.qty)}</td><td>{f.bills}</td>
+                    <td style={{ paddingLeft: 10 + f.depth * 16 }}>{f.label}</td><td>{Math.round(f.value).toLocaleString('en-IN')}</td><td>{num(f.qty)}</td><td>{num(f.free)}</td><td>{f.bills}</td>
                   </tr>))}
-                <tr className="t"><td>Total</td><td>{Math.round(tot.value).toLocaleString('en-IN')}</td><td>{num(tot.qty)}</td><td>{tot.bills}</td></tr>
+                <tr className="t"><td>Total</td><td>{Math.round(tot.value).toLocaleString('en-IN')}</td><td>{num(tot.qty)}</td><td>{num(tot.free)}</td><td>{tot.bills}</td></tr>
               </tbody>
             </table>
           </div>
