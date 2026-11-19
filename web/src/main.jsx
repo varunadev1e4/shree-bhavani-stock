@@ -21,7 +21,25 @@ if (NAME) {
   document.title = NAME
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+// If something crashes, show the reason on screen instead of a frozen or blank app.
+class Boundary extends React.Component {
+  state = { err: null }
+  static getDerivedStateFromError(err) { return { err } }
+  render() {
+    if (!this.state.err) return this.props.children
+    const e = this.state.err
+    return (
+      <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
+        <h2>Something went wrong</h2>
+        <p>Please send a screenshot of this message.</p>
+        <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{String((e && (e.stack || e.message)) || e)}</pre>
+        <button onClick={() => location.reload()} style={{ padding: '10px 18px', fontSize: 16 }}>Reload</button>
+      </div>
+    )
+  }
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Boundary><App /></Boundary>)
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
