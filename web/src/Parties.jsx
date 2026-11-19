@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, waLink, SHOP } from './util'
 import Customer from './Customer'
+import PartyStatement from './PartyStatement'
 import ExportBar from './Export'
 import { exportPdf } from './exporter'
 
@@ -29,6 +30,7 @@ export default function Parties({ side: sideProp }) {
   const [sort, setSort] = useState('bal')
   const [open, setOpen] = useState(null)
   const [sel, setSel] = useState(null)
+  const [stm, setStm] = useState(null)
   const [preset, setPreset] = useState('all')
   const [[from, to], setDates] = useState(['', ''])
   const rangeOn = !!(from || to)
@@ -144,6 +146,7 @@ export default function Parties({ side: sideProp }) {
                   ) : amt > 0.5 ? <p className="muted small">Bill details appear after the next sync.</p> : null}
                   <div className="btnrow">
                     {bl.length > 0 && <button className="ghost" onClick={() => partyPdf(p)}>Share PDF</button>}
+                    <button className="ghost" onClick={() => setStm(p)}>Statement</button>
                     <button className="ghost" onClick={() => setSel(p)}>Details</button>
                     {ph ? <a className="ghost" href={'tel:' + ph.replace(/\D/g, '')}>Call {ph}</a> : <span className="muted">No phone saved</span>}
                     {ph && side === 'recv' && amt > 0.5 && (
@@ -158,6 +161,7 @@ export default function Parties({ side: sideProp }) {
         })}
       </ul>
       {sel && <Customer p={sel} onClose={() => setSel(null)} />}
+      {stm && <PartyStatement p={stm} side={side} current={side === 'recv' ? rec(stm) : pay(stm)} initFrom={from} initTo={to} onClose={() => setStm(null)} />}
     </div>
   )
 }

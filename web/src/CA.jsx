@@ -76,9 +76,19 @@ export default function CA() {
     ['HSN-wise purchases', 'HSN_wise_purchases', () => hsnReport('P', hsn, o)],
   ]
   const make = async (f) => ({ blob: await xlsxBlob(f[2]()), filename: f[1] + '_' + tag + '.xlsx' })
+  // The phone only opens WhatsApp / the share sheet if the share is called right when you tap, so the files are built beforehand.
+  const [ready, setReady] = useState(null)
+  useEffect(() => { import('xlsx'); import('jspdf'); import('jspdf-autotable') }, [])
+  useEffect(() => {
+    setReady(null)
+    if (!bills || !bills.length) return
+    let stale = false
+    Promise.all(FILES.map(make)).then((r) => { if (!stale) setReady(r) }).catch(() => {})
+    return () => { stale = true }
+  }, [bills, hsn])
   const run = async (key, fn) => { setBusy(key); try { await fn() } catch (e) { alert('Could not make the file: ' + e.message) } setBusy('') }
-  const shareAll = () => run('all', async () => deliverMany(await Promise.all(FILES.map(make)), 'GST files ' + ymLabel(ym)))
-  const shareOne = (f) => run(f[1], async () => deliverMany([await make(f)], f[0] + ' ' + ymLabel(ym)))
+  const shareAll = () => ready && deliverMany(ready, 'GST files ' + ymLabel(ym))
+  const shareOne = (i) => ready && deliverMany([ready[i]], FILES[i][0] + ' ' + ymLabel(ym))
 
   const S = sum && sum.S, P = sum && sum.P
   const pay3b = S && P ? { cgst: S.cgst - P.cgst, sgst: S.sgst - P.sgst, igst: S.igst - P.igst } : null
@@ -122,8 +132,8 @@ export default function CA() {
       {none && <div className="empty"><b>No bills for {ymLabel(ym)}</b><span>Run migration-9 in Supabase, then load the year once (delete history.last and run run-sync.bat, or run history.ps1 for older years).</span></div>}
       {bills && !none && (
         <>
-          <button className="primary" style={{ width: '100%' }} disabled={!!busy} onClick={shareAll}>{busy === 'all' ? 'Making 4 files...' : 'Share all 4 files for ' + ymLabel(ym)}</button>
-          <div className="btnrow">{FILES.map((f) => <button key={f[1]} className="ghost sm" disabled={!!busy} onClick={() => shareOne(f)}>{busy === f[1] ? 'Making...' : f[0]}</button>)}</div>
+          <button className="primary" style={{ width: '100%' }} disabled={!ready} onClick={shareAll}>{ready ? 'Share all 4 files for ' + ymLabel(ym) : 'Preparing files...'}</button>
+          <div className="btnrow">{FILES.map((f, i) => <button key={f[1]} className="ghost sm" disabled={!ready} onClick={() => shareOne(i)}>{f[0]}</button>)}</div>
 
           <h2 className="h2" style={{ marginTop: 18 }}>GST for the month</h2>
           <div className="chartcard" style={{ padding: 0, overflowX: 'auto' }}>

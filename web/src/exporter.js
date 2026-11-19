@@ -62,7 +62,7 @@ export async function xlsxBlob({ aoa, dateCols = [], widths = [] }) {
 export async function deliverMany(items, title) {
   const files = items.map((x) => new File([x.blob], x.filename, { type: x.blob.type }))
   if (navigator.canShare && navigator.canShare({ files })) {
-    try { await navigator.share({ files, title }); return } catch (e) { if (e && e.name === 'AbortError') return }
+    try { await navigator.share({ files, title }); return } catch (e) { if (e && e.name === 'AbortError') return; console.warn('share failed, downloading instead', e) }
   }
   for (const f of files) {
     const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name

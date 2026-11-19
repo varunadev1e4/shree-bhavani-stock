@@ -103,6 +103,24 @@ try {
   }
   $hsn = New-Object System.Collections.Generic.List[object]
   foreach ($v in $hs.Values) { $v.qty = [Math]::Round($v.qty, 2); $v.taxable = [Math]::Round($v.taxable, 2); $v.tax = [Math]::Round($v.tax, 2); $hsn.Add($v) }
+  # Party ledger for statements: credit bills, receipts, payments, returns and discounts allowed, plus each party's opening balance
+  $fyStart = New-Object DateTime $y1, 4, 1
+  $led = New-Object System.Collections.Generic.List[object]
+  function AddLed($acc, $dt, $kind, $vno, $ref, $amt) { $led.Add([ordered]@{ fy = $Fy; acc_id = [int]$acc; d = ([datetime]$dt).ToString("yyyy-MM-dd"); kind = $kind; vno = (S $vno); ref = (S $ref); amount = [Math]::Round([double]$amt, 2) }) }
+  foreach ($r in (Rows "SELECT AccId, TranType, FeedNo, InvNo, FeedDate, NetAmt FROM TranMain WHERE TranType IN ('S','P') AND Terms = 1").Rows) {
+    if ($r["FeedDate"] -is [DBNull] -or [datetime]$r["FeedDate"] -lt $fyStart -or [datetime]$r["FeedDate"] -ge $fyStart.AddYears(1)) { continue }
+    AddLed $r["AccId"] $r["FeedDate"] (S $r["TranType"]) $r["FeedNo"] $(if ((S $r["TranType"]) -eq "P") { $r["InvNo"] } else { "" }) (N $r["NetAmt"])
+  }
+  foreach ($r in (Rows "SELECT AccId, TranType, FeedNo, ChqNo, FeedDate, NetAmt FROM AccHead WHERE TranType IN ('RS','PA','SR')").Rows) {
+    if ($r["FeedDate"] -is [DBNull] -or [datetime]$r["FeedDate"] -lt $fyStart -or [datetime]$r["FeedDate"] -ge $fyStart.AddYears(1)) { continue }
+    AddLed $r["AccId"] $r["FeedDate"] (S $r["TranType"]) $r["FeedNo"] $r["ChqNo"] (N $r["NetAmt"])
+  }
+  foreach ($r in (Rows "SELECT h.AccId AS AccId, h.FeedNo AS FeedNo, h.FeedDate AS FeedDate, SUM(i.DisAmt) AS dis FROM AccInv i INNER JOIN AccHead h ON i.AHeadId = h.RndId WHERE i.DisAmt > 0 GROUP BY h.AccId, h.FeedNo, h.FeedDate").Rows) {
+    if ($r["FeedDate"] -is [DBNull] -or [datetime]$r["FeedDate"] -lt $fyStart -or [datetime]$r["FeedDate"] -ge $fyStart.AddYears(1)) { continue }
+    AddLed $r["AccId"] $r["FeedDate"] "D" $r["FeedNo"] "" (N $r["dis"])
+  }
+  $opening = New-Object System.Collections.Generic.List[object]
+  foreach ($r in (Rows "SELECT RndId, OpBal FROM Accounts WHERE SubGroupId IN (2,3)").Rows) { $opening.Add([ordered]@{ fy = $Fy; acc_id = [int]$r["RndId"]; op = (N $r["OpBal"]) }) }
   Write-Host ("{0}: {1} monthly rows, {2} product rows, {3} party rows, {4} bill lines" -f $Fy, $monthly.Count, $prod.Count, $party.Count, $lines.Count)
   if ($monthly.Count -eq 0) { throw "No transactions found for $Fy (check the file)" }
 
@@ -120,6 +138,8 @@ try {
   Replace-Table "sales_lines" $lines
   Replace-Table "gst_bills" $bills
   Replace-Table "hsn_monthly" $hsn
+  Replace-Table "ledger_entries" $led
+  Replace-Table "party_opening" $opening
   Write-Host "History uploaded for $Fy"
 }
 finally {
