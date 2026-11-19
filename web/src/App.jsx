@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import Expiry from './Expiry'
 import Parties from './Parties'
 import Insights from './Insights'
+import TempBill from './TempBill'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
 import { Mark } from './Logo'
 import ExportBar from './Export'
@@ -88,6 +89,7 @@ function Home({ go }) {
         {K ? K.map(([c, l, v, s, t]) => <button key={l} className={'kpi ' + c} onClick={() => go(t, c === 'k1' ? 'recv' : c === 'k2' ? 'pay' : undefined)}><span>{l}</span><b>{v}</b><small>{s}</small></button>)
           : [0, 1, 2, 3].map((i) => <div key={i} className="kpi sk" />)}
       </section>
+      <button className="ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => go('temp')}>Temporary bill (goods sent without billing)</button>
       {d && d.day && (
         <section><h2 className="h2">Latest day · {new Date(d.day.dy).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</h2>
           <div className="minis">
@@ -314,7 +316,7 @@ function Shell() {
   }, [])
   const go = (t, side) => { if (side) setPs(side); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights /> }[tab]
+  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}

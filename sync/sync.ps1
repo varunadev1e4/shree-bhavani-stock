@@ -87,8 +87,8 @@ try {
   $syncId = Get-Date -Format "yyyyMMddHHmmss"
   $companies = Map-Rows (Get-Rows "SELECT RndId, [Name], ShortName, Deleted FROM Company") ([ordered]@{
     RndId = "id"; Name = "name"; ShortName = "short_name"; Deleted = "deleted" }) $syncId
-  $products = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], Packing, Mrp, SaleGst, ComId, Deleted, RackNo, OrdLevel, LSaleDate FROM Product") ([ordered]@{
-    RndId = "id"; Code = "code"; Name = "name"; Packing = "packing"; Mrp = "mrp"; SaleGst = "gst"; ComId = "company_id"; Deleted = "deleted"; RackNo = "rack_no"; OrdLevel = "ord_level"; LSaleDate = "last_sale" }) $syncId
+  $products = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], Packing, Mrp, SaleGst, ComId, Deleted, RackNo, OrdLevel, LSaleDate, CostPrice, LPurRcvdDate FROM Product") ([ordered]@{
+    RndId = "id"; Code = "code"; Name = "name"; Packing = "packing"; Mrp = "mrp"; SaleGst = "gst"; ComId = "company_id"; Deleted = "deleted"; RackNo = "rack_no"; OrdLevel = "ord_level"; LSaleDate = "last_sale"; CostPrice = "cost_price"; LPurRcvdDate = "last_purchase" }) $syncId
   $batches = Map-Rows (Get-Rows "SELECT RndId, ProdId, BatchNo, ExpMonth, ExpYear, Qty, Mrp, BillPrice, CostPrice FROM Batch WHERE Qty > 0") ([ordered]@{
     RndId = "id"; ProdId = "product_id"; BatchNo = "batch_no"; ExpMonth = "exp_month"; ExpYear = "exp_year"; Qty = "qty"; Mrp = "mrp"; BillPrice = "bill_price"; CostPrice = "cost_price" }) $syncId
 

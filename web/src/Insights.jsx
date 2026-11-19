@@ -4,8 +4,9 @@ import Trends from './Trends'
 import Analysis from './Analysis'
 import ExportBar from './Export'
 import Reports from './Reports'
+import Statement from './Statement'
 
-const TABS = [['overview', 'Overview'], ['reports', 'Reports'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['margin', 'Margins']]
+const TABS = [['overview', 'Overview'], ['stmt', 'Stock & Sales'], ['reports', 'Reports'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['margin', 'Margins']]
 const AGE = [['0-30', '#16a34a'], ['31-60', '#d97706'], ['61-90', '#ea580c'], ['90+', '#dc2626']]
 const lc = (s) => String(s || '').toLowerCase()
 const phoneOf = (p) => p && (p.phone || p.phone2)
@@ -209,6 +210,7 @@ export default function Insights() {
       <div className="qchips">{TABS.map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}</div>
       <div style={{ marginTop: 12 }}>
         {tab === 'overview' && <Analysis stock={stock} parties={parties} fys={fys} latest={latest} />}
+        {tab === 'stmt' && <Statement stock={stock} />}
         {tab === 'reports' && <Reports />}
         {tab === 'trends' && <Trends />}
         {tab === 'reorder' && <Reorder stock={stock} latest={latest} />}
