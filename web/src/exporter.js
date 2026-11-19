@@ -25,11 +25,15 @@ export async function exportPdf({ title, subtitle, columns, rows, filename, numC
   doc.text([subtitle, 'Generated ' + new Date().toLocaleString('en-IN')].filter(Boolean).join('   |   '), 40, 72)
   doc.setTextColor(0)
   const bs = new Set(bold)
+  const ns = new Set(numCols)
   autoTable(doc, {
     startY: 82, head: [columns], body: rows.map((r) => r.map(cell)),
     styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: [13, 148, 136] },
     columnStyles: Object.fromEntries(numCols.map((i) => [i, { halign: 'right' }])),
-    didParseCell: (d) => { if (d.section === 'body' && bs.has(d.row.index)) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [226, 244, 241] } },
+    didParseCell: (d) => {
+      // Headers line up with their columns: numbers columns are right-aligned in the header too
+      if (d.section === 'head' && ns.has(d.column.index)) d.cell.styles.halign = 'right'
+      if (d.section === 'body' && bs.has(d.row.index)) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [226, 244, 241] } },
     didDrawPage: () => { doc.setFontSize(8); doc.text('Page ' + doc.internal.getNumberOfPages(), doc.internal.pageSize.getWidth() - 70, doc.internal.pageSize.getHeight() - 20) },
   })
   await deliver(doc.output('blob'), filename + '-' + stamp() + '.pdf', title)
