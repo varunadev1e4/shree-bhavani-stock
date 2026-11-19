@@ -73,3 +73,4 @@ export const addYm = (ym, n) => { const t = Math.floor(ym / 100) * 12 + (ym % 10
 // Shop branding. Other shops set VITE_APP_NAME and VITE_SHOP_NAME in Vercel.
 export const APP = import.meta.env.VITE_APP_NAME || 'SBMA'
 export const SHOP = import.meta.env.VITE_SHOP_NAME || 'Shree Bhavani Medical Agency'
+export const GSTIN = import.meta.env.VITE_GSTIN || '36AFNFS4139N1Z9'

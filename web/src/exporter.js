@@ -43,3 +43,27 @@ export async function exportXlsx({ title, columns, rows, filename }) {
   const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
   await deliver(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename + '-' + stamp() + '.xlsx', title)
 }
+
+// Excel file with title lines on top, like Profit Maker's own exports. Returns a Blob.
+export async function xlsxBlob({ aoa, dateCols = [], widths = [] }) {
+  const XLSX = await import('xlsx')
+  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true })
+  Object.keys(ws).forEach((a) => { if (a[0] !== '!' && ws[a].t === 'd') { ws[a].z = 'dd/mm/yyyy' } })
+  ws['!cols'] = widths.map((w) => ({ wch: w }))
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
+  return new Blob([XLSX.write(wb, { type: 'array', bookType: 'xlsx', cellDates: true })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+}
+
+// Shares several files in one go (one WhatsApp or email message). Falls back to separate downloads.
+export async function deliverMany(items, title) {
+  const files = items.map((x) => new File([x.blob], x.filename, { type: x.blob.type }))
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ files, title }); return } catch (e) { if (e && e.name === 'AbortError') return }
+  }
+  for (const f of files) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name
+    document.body.appendChild(a); a.click(); a.remove()
+    await new Promise((r) => setTimeout(r, 400))
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000)
+  }
+}

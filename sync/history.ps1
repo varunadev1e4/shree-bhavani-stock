@@ -74,6 +74,35 @@ try {
     $lines.Add([ordered]@{ fy = $Fy; kind = (S $r["tt"]); d = $dt.ToString("yyyy-MM-dd"); bill_no = (S $r["bn"]); party = (S $r["pn"]); city = (S $r["cty"]); company = $(if ((S $r["cmp"]) -eq "") { "Other" } else { S $r["cmp"] }); product = (S $r["prd"])
       qty = (N $r["q"]); free = (N $r["fr"]); amount = (N $r["amt"]); gst = (N $r["gp"]); terms = $(if ($r["tm"] -is [DBNull]) { 1 } else { [int]$r["tm"] }) })
   }
+  # GST registers (bill by bill) and HSN totals, for the CA reports. Interstate = party GSTIN does not start with the home state code.
+  $homeSt = if ($cfg.PSObject.Properties["home_state"] -and $cfg.home_state) { [string]$cfg.home_state } else { "36" }
+  function IsInter($g) { $g = (S $g); return ($g.Length -ge 2 -and -not $g.StartsWith($homeSt)) }
+  $bills = New-Object System.Collections.Generic.List[object]
+  $sqlB = "SELECT m.TranType AS tt, m.FeedNo AS fn, m.FeedDate AS fd, m.InvNo AS ino, m.InvDate AS idt, m.Terms AS tm, a.[Code] AS cd, a.[Name] AS pn, a.GstIn AS gin, m.GstVal0 AS v0, m.GstVal1 AS v1, m.Gst1 AS g1, m.GstVal2 AS v2, m.Gst2 AS g2, m.GstVal3 AS v3, m.Gst3 AS g3, m.GstVal4 AS v4, m.Gst4 AS g4, m.SumGst AS sg, m.NetAmt AS net FROM TranMain m INNER JOIN Accounts a ON m.AccId=a.RndId WHERE m.TranType IN ('S','P')"
+  foreach ($r in (Rows $sqlB).Rows) {
+    if ($r["fd"] -is [DBNull]) { continue }
+    $dt = [datetime]$r["fd"]; $ym = $dt.Year * 100 + $dt.Month
+    if ($ym -lt $lo -or $ym -gt $hi) { continue }
+    $idt = if ($r["idt"] -is [DBNull]) { $null } else { ([datetime]$r["idt"]).ToString("yyyy-MM-dd") }
+    $bills.Add([ordered]@{ fy = $Fy; kind = (S $r["tt"]); typ = $(if ($r["tm"] -is [DBNull] -or [int]$r["tm"] -eq 1) { "Credit" } else { "Cash" }); feed_no = (S $r["fn"]); feed_date = $dt.ToString("yyyy-MM-dd"); inv_no = (S $r["ino"]); inv_date = $idt
+      code = (S $r["cd"]); name = (S $r["pn"]); gstin = (S $r["gin"]); v0 = (N $r["v0"]); v5 = (N $r["v1"]); g5 = (N $r["g1"]); v12 = (N $r["v2"]); g12 = (N $r["g2"]); v18 = (N $r["v3"]); g18 = (N $r["g3"]); v28 = (N $r["v4"]); g28 = (N $r["g4"])
+      sum_gst = (N $r["sg"]); net = (N $r["net"]); inter = (IsInter $r["gin"]) })
+  }
+  $hs = @{}
+  $sqlH = "SELECT m.FeedDate AS d, m.TranType AS tt, p.HsnCode AS hsn, i.GstPer AS gp, a.GstIn AS gin, i.Qty AS q, i.ProValue AS pv, i.DisPer AS dp, i.TaxValue AS tv FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Accounts a ON m.AccId=a.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) WHERE m.TranType IN ('S','P')"
+  foreach ($r in (Rows $sqlH).Rows) {
+    if ($r["d"] -is [DBNull]) { continue }
+    $dt = [datetime]$r["d"]; $ym = $dt.Year * 100 + $dt.Month
+    if ($ym -lt $lo -or $ym -gt $hi) { continue }
+    $tt = S $r["tt"]; $gp = [double](N $r["gp"]); $inter = IsInter $r["gin"]
+    # Sales are valued after discount (TaxValue); purchases after the item discount (ProValue less DisPer)
+    $tx = if ($tt -eq "S") { [double]$(if ($r["tv"] -is [DBNull]) { 0 } else { $r["tv"] }) } else { [double]$(if ($r["pv"] -is [DBNull]) { 0 } else { $r["pv"] }) * (1 - [double]$(if ($r["dp"] -is [DBNull]) { 0 } else { $r["dp"] }) / 100) }
+    $k = "$tt|$ym|$(S $r['hsn'])|$gp|$inter"
+    if (-not $hs.ContainsKey($k)) { $hs[$k] = [ordered]@{ fy = $Fy; kind = $tt; ym = $ym; hsn = (S $r["hsn"]); gst = $gp; inter = $inter; qty = 0.0; taxable = 0.0; tax = 0.0 } }
+    $hs[$k].qty += [double]$(if ($r["q"] -is [DBNull]) { 0 } else { $r["q"] }); $hs[$k].taxable += $tx; $hs[$k].tax += $tx * $gp / 100
+  }
+  $hsn = New-Object System.Collections.Generic.List[object]
+  foreach ($v in $hs.Values) { $v.qty = [Math]::Round($v.qty, 2); $v.taxable = [Math]::Round($v.taxable, 2); $v.tax = [Math]::Round($v.tax, 2); $hsn.Add($v) }
   Write-Host ("{0}: {1} monthly rows, {2} product rows, {3} party rows, {4} bill lines" -f $Fy, $monthly.Count, $prod.Count, $party.Count, $lines.Count)
   if ($monthly.Count -eq 0) { throw "No transactions found for $Fy (check the file)" }
 
@@ -89,6 +118,8 @@ try {
   Replace-Table "fy_product_monthly" $prod
   Replace-Table "fy_party_monthly" $party
   Replace-Table "sales_lines" $lines
+  Replace-Table "gst_bills" $bills
+  Replace-Table "hsn_monthly" $hsn
   Write-Host "History uploaded for $Fy"
 }
 finally {
