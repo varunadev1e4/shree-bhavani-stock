@@ -91,3 +91,4 @@ button,input,select { font:inherit; color:inherit; } button { cursor:pointer; } 
 .rtable tr.g td { font-weight:700; background:var(--accent-soft); } .rtable tr.t td { font-weight:800; border-top:2px solid var(--accent); }
 .dates { display:flex; gap:8px; margin-top:10px; } .dates input, .fsel { flex:1; min-width:0; padding:10px 12px; border-radius:12px; border:0; background:var(--card); box-shadow:var(--shadow); font-size:14px; }
 .fgrid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px; } .fgrid select { width:100%; padding:10px 8px; border-radius:12px; border:0; background:var(--card); box-shadow:var(--shadow); font-size:13px; }
+.ver { position:fixed; right:10px; bottom:calc(76px + env(safe-area-inset-bottom)); font-size:10px; color:var(--muted); pointer-events:none; z-index:9; opacity:.7; }

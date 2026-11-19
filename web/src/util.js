@@ -49,9 +49,18 @@ export async function cached(key, fn) {
     throw e
   }
 }
+const mem = new Map()
+export const clearMem = () => mem.clear()
+// Screens asking for the same data within 2 minutes share one request (fewer requests, faster tab switching).
 export const fetchAll = (table, cols, filter, key) => {
   const k = key || (filter ? null : table + ':' + cols)
-  return k ? cached(k, () => rawFetchAll(table, cols, filter)) : rawFetchAll(table, cols, filter)
+  if (!k) return rawFetchAll(table, cols, filter)
+  const hit = mem.get(k)
+  if (hit && Date.now() - hit.t < 120000) return hit.p
+  const p = cached(k, () => rawFetchAll(table, cols, filter))
+  mem.set(k, { t: Date.now(), p })
+  p.catch(() => mem.delete(k))
+  return p
 }
 export const latestSync = () => cached('sync', async () => {
   const { data, error } = await supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1)

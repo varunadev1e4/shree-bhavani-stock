@@ -39,6 +39,15 @@ class Boundary extends React.Component {
   }
 }
 
+function showError(msg) {
+  if (document.getElementById('sb-err')) return
+  const d = document.createElement('div'); d.id = 'sb-err'
+  d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b91c1c;color:#fff;padding:10px 14px;font:13px system-ui;white-space:pre-wrap'
+  d.textContent = 'Error: ' + msg + '\n(tap to hide)'; d.onclick = () => d.remove(); document.body.appendChild(d)
+}
+window.addEventListener('error', (e) => showError(e.message))
+window.addEventListener('unhandledrejection', (e) => showError(String((e.reason && e.reason.message) || e.reason)))
+
 ReactDOM.createRoot(document.getElementById('root')).render(<Boundary><App /></Boundary>)
 
 if ('serviceWorker' in navigator) {

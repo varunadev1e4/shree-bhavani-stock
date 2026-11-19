@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 import Expiry from './Expiry'
 import Parties from './Parties'
 import Insights from './Insights'
-import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, APP, SHOP } from './util'
+import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
 import { Mark } from './Logo'
 import ExportBar from './Export'
 
@@ -288,16 +288,15 @@ function Stock() {
 
 function Shell() {
   const [tab, setTab] = useState('home')
-  const [seen, setSeen] = useState({ home: true })
+  const [ps, setPs] = useState('recv')
   const [off, setOff] = useState(!navigator.onLine)
   const [rev, setRev] = useState(0)
   const [stale, setStale] = useState(false)
-  // Reload the data when the app comes back to the screen after a while, and every 10 minutes while open
+  useEffect(() => { const f = () => setOff(!navigator.onLine); window.addEventListener('online', f); window.addEventListener('offline', f); return () => { window.removeEventListener('online', f); window.removeEventListener('offline', f) } }, [])
+  // Reload the data when a newer backup has been synced (a tiny check first, to save data)
   useEffect(() => {
-    let hiddenAt = 0
-    const bump = () => { setStale(false); setRev((r) => r + 1) }
-    let known = null
-    // A tiny check first: reload the data only when a newer backup has been synced (saves data usage)
+    let hiddenAt = 0, known = null
+    const bump = () => { clearMem(); setStale(false); setRev((r) => r + 1) }
     const check = async () => {
       try {
         const { data } = await supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1)
@@ -313,17 +312,14 @@ function Shell() {
     document.addEventListener('visibilitychange', vis); window.addEventListener('sb-stale', st)
     return () => { clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('sb-stale', st) }
   }, [])
-  useEffect(() => { const f = () => setOff(!navigator.onLine); window.addEventListener('online', f); window.addEventListener('offline', f); return () => { window.removeEventListener('online', f); window.removeEventListener('offline', f) } }, [])
-  const [ps, setPs] = useState('recv')
-  const go = (t, side) => { if (side) setPs(side); setTab(t); setSeen((s) => ({ ...s, [t]: true })); window.scrollTo(0, 0) }
+  const go = (t, side) => { if (side) setPs(side); setTab(t); window.scrollTo(0, 0) }
+  // Only the open tab exists on the page; the others are created when you open them.
+  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
-      <div key={rev} hidden={tab !== 'home'}><Home go={go} /></div>
-      {seen.stock && <div key={rev} hidden={tab !== 'stock'}><Stock /></div>}
-      {seen.expiry && <div key={rev} hidden={tab !== 'expiry'}><Expiry /></div>}
-      {seen.parties && <div key={rev} hidden={tab !== 'parties'}><Parties side={ps} /></div>}
-      {seen.insights && <div key={rev} hidden={tab !== 'insights'}><Insights /></div>}
+      <div key={tab + ':' + rev}>{view}</div>
+      <div className="ver">Build 12</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['insights', 'Insights']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
