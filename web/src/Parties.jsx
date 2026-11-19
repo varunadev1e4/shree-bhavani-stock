@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, waLink, SHOP } from './util'
 import Customer from './Customer'
 import PartyStatement from './PartyStatement'
+import Directory from './Directory'
 import ExportBar from './Export'
 import { exportPdf } from './exporter'
 
@@ -31,6 +32,7 @@ export default function Parties({ side: sideProp }) {
   const [open, setOpen] = useState(null)
   const [sel, setSel] = useState(null)
   const [stm, setStm] = useState(null)
+  const [view, setView] = useState('dues')
   const [preset, setPreset] = useState('all')
   const [[from, to], setDates] = useState(['', ''])
   const rangeOn = !!(from || to)
@@ -102,11 +104,20 @@ export default function Parties({ side: sideProp }) {
     exportPdf({ title: p.name + ' - pending bills', subtitle: kindName + (p.city ? ' | ' + p.city : '') + (rangeOn ? ' | ' + rangeText : ''), columns: COLS, rows: [...r, ['TOTAL', '', '', '', owed(p), '']], bold: [r.length], numCols: [2, 3, 4, 5], filename: p.name.replace(/[^a-z0-9]+/gi, '-').slice(0, 30) })
   }
 
+  if (view === 'dir') return (
+    <div className="app">
+      <header className="top"><h1 className="h1">Parties</h1></header>
+      <div className="seg" style={{ width: 'fit-content', marginBottom: 12 }}>{[['dues', 'Dues'], ['dir', 'Directory']].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
+      <Directory />
+    </div>
+  )
+
   return (
     <div className="app">
       <header className="top"><h1 className="h1">Parties</h1>
         <div className="actions"><button className="icon" onClick={load} aria-label="Refresh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg></button></div>
       </header>
+      <div className="seg" style={{ width: 'fit-content', marginBottom: 12 }}>{[['dues', 'Dues'], ['dir', 'Directory']].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
       <div className="stats">
         <button className={'stat' + (side === 'recv' ? ' on' : '')} onClick={() => setSide('recv')}><span>To receive</span><b>{rs(sums.r)}</b><span>{sums.nr} parties</span></button>
         <button className={'stat' + (side === 'pay' ? ' on' : '')} onClick={() => setSide('pay')}><span>To pay</span><b>{rs(sums.a)}</b><span>{sums.na} parties</span></button>

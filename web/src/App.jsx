@@ -6,6 +6,7 @@ import Insights from './Insights'
 import TempBill from './TempBill'
 import Staff from './Staff'
 import Expenses from './Expenses'
+import TempReturn from './TempReturn'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
 import { Mark } from './Logo'
 import { getTheme, setTheme, nextTheme } from './theme'
@@ -65,6 +66,8 @@ function Home({ go }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
   const [spin, setSpin] = useState(false)
+  const [nRet, setNRet] = useState(0)
+  useEffect(() => { supabase.from('temp_returns').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNRet(count || 0)).catch(() => {}) }, [])
   const [theme, setThemeState] = useState(getTheme())
   const cycleTheme = () => { const n = nextTheme(theme); setTheme(n); setThemeState(n) }
   const load = useCallback(async () => {
@@ -103,8 +106,9 @@ function Home({ go }) {
         {K ? K.map(([c, l, v, s, t]) => <button key={l} className={'kpi ' + c} onClick={() => go(t, c === 'k1' ? 'recv' : c === 'k2' ? 'pay' : undefined)}><span>{l}</span><b>{v}</b><small>{s}</small></button>)
           : [0, 1, 2, 3].map((i) => <div key={i} className="kpi sk" />)}
       </section>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('temp')}>Temporary bill</button>
+        <button className="ghost" style={{ margin: 0 }} onClick={() => go('ret')}>Temp returns{nRet > 0 ? ' (' + nRet + ' to enter)' : ''}</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('staff')}>Staff</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('exp')}>Expenses</button>
       </div>
@@ -334,7 +338,7 @@ function Shell() {
   }, [])
   const go = (t, side) => { if (side) setPs(side); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} />, exp: <Expenses back={() => go('home')} /> }[tab]
+  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} />, exp: <Expenses back={() => go('home')} />, ret: <TempReturn back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
