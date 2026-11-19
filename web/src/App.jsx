@@ -8,6 +8,7 @@ import Staff from './Staff'
 import Expenses from './Expenses'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
 import { Mark } from './Logo'
+import { getTheme, setTheme, nextTheme } from './theme'
 import ExportBar from './Export'
 
 const SORTS = { name: 'A to Z', qtyDesc: 'Stock: high to low', qtyAsc: 'Stock: low to high', expiry: 'Expiry: soonest' }
@@ -21,6 +22,11 @@ const ICONS = {
   parties: I(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .6 3.3 2.3 3.7 5.2" /></>),
 }
 const Refresh = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg>
+const THEME_ICON = {
+  light: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>,
+  dark: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" /></svg>,
+  auto: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9" /><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></svg>,
+}
 const Out = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
 
 function Login() {
@@ -59,6 +65,8 @@ function Home({ go }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
   const [spin, setSpin] = useState(false)
+  const [theme, setThemeState] = useState(getTheme())
+  const cycleTheme = () => { const n = nextTheme(theme); setTheme(n); setThemeState(n) }
   const load = useCallback(async () => {
     try {
       const [pr, st, lg, dl] = await Promise.all([
@@ -88,7 +96,7 @@ function Home({ go }) {
       <header className="top">
         <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">{APP}</h1>
           {d && <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>}</div>
-        <div className="actions"><button className="icon" onClick={refresh} disabled={spin} aria-label="Refresh" style={spin ? { opacity: 0.5 } : undefined}>{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
+        <div className="actions"><button className="icon" onClick={cycleTheme} aria-label={'Theme: ' + theme} title={'Theme: ' + theme}>{THEME_ICON[theme]}</button><button className="icon" onClick={refresh} disabled={spin} aria-label="Refresh" style={spin ? { opacity: 0.5 } : undefined}>{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
       </header>
       {err && <p className="error pad">{err}</p>}
       <section className="kpis">
