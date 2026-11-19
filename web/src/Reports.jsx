@@ -25,7 +25,7 @@ function aggregate(rows, dims, val) {
   rows.forEach((r) => {
     let n = root; const path = [root]
     dims.forEach((d) => { const k = KEY[d](r); if (!n.kids.has(k)) n.kids.set(k, mk(k)); n = n.kids.get(k); path.push(n) })
-    path.forEach((x) => { x.value += val(r); x.qty += Number(r.qty); x.bills.add(r.bill_no + '|' + r.party) })
+    path.forEach((x) => { x.value += val(r); x.qty += Number(r.qty) + (Number(r.free) || 0); x.bills.add(r.bill_no + '|' + r.party) })
   })
   return root
 }
@@ -54,7 +54,7 @@ export default function Reports() {
   useEffect(() => {
     let stale = false
     setRows(null)
-    fetchAll('sales_lines', 'd,bill_no,party,city,company,product,qty,amount,gst,terms', (q) => q.eq('kind', kind).gte('d', from).lte('d', to))
+    fetchAll('sales_lines', 'd,bill_no,party,city,company,product,qty,free,amount,gst,terms', (q) => q.eq('kind', kind).gte('d', from).lte('d', to))
       .then((d) => { if (!stale) setRows(d) }).catch(() => { if (!stale) setRows([]) })
     return () => { stale = true }
   }, [kind, from, to])
@@ -62,7 +62,8 @@ export default function Reports() {
 
   const pick = (p) => { setPreset(p); if (p !== 'custom') setDates(range(p)) }
   const companies = useMemo(() => [...new Set((rows || []).map((r) => r.company || 'Other'))].sort(), [rows])
-  const val = (r) => (exGst ? Number(r.amount) / (1 + (Number(r.gst) || 0) / 100) : Number(r.amount))
+  // amount is the value after discount and before GST; with GST it matches the bill totals
+  const val = (r) => (exGst ? Number(r.amount) : Number(r.amount) * (1 + (Number(r.gst) || 0) / 100))
 
   const filtered = useMemo(() => {
     const w = text.trim().toLowerCase().split(/\s+/).filter(Boolean)

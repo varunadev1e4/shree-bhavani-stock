@@ -45,7 +45,7 @@ try {
     $monthly.Add([ordered]@{ fy = $Fy; ym = $ym; kind = ([string]$r["tt"]).Trim(); bills = [int]$r["n"]; amount = [Math]::Round([double]$r["amt"], 2) })
   }
   $prod = New-Object System.Collections.Generic.List[object]
-  $sqlP = "SELECT $ymT AS ym, p.[Name] AS pn, c.[Name] AS cn, SUM(i.Qty) AS q, SUM(i.ProValue) AS amt, SUM(i.ProValue / (1 + IIf(IsNull(i.GstPer),0,i.GstPer) / 100)) AS amtx, SUM((i.Qty + IIf(IsNull(i.Free),0,i.Free)) * IIf(IsNull(b.CostPrice),0,b.CostPrice)) AS cst FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY $ymT, p.[Name], c.[Name]"
+  $sqlP = "SELECT $ymT AS ym, p.[Name] AS pn, c.[Name] AS cn, SUM(i.Qty) AS q, SUM(i.TaxValue * (1 + IIf(IsNull(i.GstPer),0,i.GstPer) / 100)) AS amt, SUM(i.TaxValue) AS amtx, SUM((i.Qty + IIf(IsNull(i.Free),0,i.Free)) * IIf(IsNull(b.CostPrice),0,b.CostPrice)) AS cst FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY $ymT, p.[Name], c.[Name]"
   foreach ($r in (Rows $sqlP).Rows) {
     if ($r["ym"] -is [DBNull] -or $r["pn"] -is [DBNull]) { continue }
     $ym = [int]$r["ym"]; if ($ym -lt $lo -or $ym -gt $hi) { continue }
@@ -66,7 +66,7 @@ try {
   function S($v) { if ($v -is [DBNull]) { "" } else { ([string]$v).Trim() } }
   function N($v) { if ($v -is [DBNull]) { 0.0 } else { [Math]::Round([double]$v, 2) } }
   $lines = New-Object System.Collections.Generic.List[object]
-  $sqlL = "SELECT m.InvDate AS d, m.FeedNo AS bn, m.TranType AS tt, m.Terms AS tm, a.[Name] AS pn, a.City AS cty, p.[Name] AS prd, c.[Name] AS cmp, i.Qty AS q, i.Free AS fr, i.ProValue AS amt, i.GstPer AS gp FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Accounts a ON m.AccId=a.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId WHERE m.TranType IN ('S','P')"
+  $sqlL = "SELECT m.InvDate AS d, m.FeedNo AS bn, m.TranType AS tt, m.Terms AS tm, a.[Name] AS pn, a.City AS cty, p.[Name] AS prd, c.[Name] AS cmp, i.Qty AS q, i.Free AS fr, i.TaxValue AS amt, i.GstPer AS gp FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Accounts a ON m.AccId=a.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId WHERE m.TranType IN ('S','P')"
   foreach ($r in (Rows $sqlL).Rows) {
     if ($r["d"] -is [DBNull]) { continue }
     $dt = [datetime]$r["d"]; $ym = $dt.Year * 100 + $dt.Month
