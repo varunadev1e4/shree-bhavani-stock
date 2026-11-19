@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchAll, num } from './util'
+import { fetchAll, num, rs } from './util'
 import ExportBar from './Export'
 
 // Same layout and rules as Profit Maker's "Stock & Sales Statement".
@@ -91,11 +91,9 @@ export default function Statement({ stock }) {
       {data && data.noCost && <p className="error pad">Cost prices are not loaded yet. Run migration-8 in Supabase, then run the sync once.</p>}
       {data && (
         <>
-          <div className="minis" style={{ marginTop: 12 }}>
-            <div className="mini"><span>Opening</span><b>{money(data.g.ov)}</b></div>
-            <div className="mini"><span>Purchase</span><b>{money(data.g.pv)}</b></div>
-            <div className="mini"><span>Sale (cost)</span><b>{money(data.g.sv)}</b></div>
-            <div className="mini"><span>Closing</span><b>{money(data.g.cv)}</b></div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+            {[['Opening', data.g.ov], ['Purchase', data.g.pv], ['Sale (at cost)', data.g.sv], ['Closing', data.g.cv]].map(([l, v]) => (
+              <div key={l} className="mini" style={{ minWidth: 0, flex: 'none' }}><span>{l}</span><b style={{ fontSize: 'clamp(15px, 4.4vw, 20px)', overflowWrap: 'anywhere' }}>{rs(v)}</b></div>))}
           </div>
           <div style={{ margin: '12px 0 4px' }}><ExportBar build={build} /></div>
           <div className="chartcard" style={{ padding: 0, overflowX: 'auto' }}>

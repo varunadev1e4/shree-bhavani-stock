@@ -56,6 +56,7 @@ function daily(rows) {
 function Home({ go }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
+  const [spin, setSpin] = useState(false)
   const load = useCallback(async () => {
     try {
       const [pr, st, lg, dl] = await Promise.all([
@@ -70,8 +71,11 @@ function Home({ go }) {
       const inStock = st.filter((p) => Number(p.total_qty) > 0)
       setD({ recv: cust.reduce((s, p) => s + p.owed, 0), nCust: cust.length, pay: sup, nPay: live.filter((p) => Number(p.payable) > 0.5).length, items: inStock.length,
         soon: inStock.filter((p) => expState(p.nearest_expiry)).length, top: cust.slice(0, 5), sync: lg, day: daily(dl) })
+      setErr('')
     } catch (e) { setErr(e.message) }
   }, [])
+  // Refresh must skip the 2-minute shared cache, otherwise it just shows the same data again.
+  const refresh = async () => { setSpin(true); clearMem(); await load(); setTimeout(() => setSpin(false), 400) }
   useEffect(() => { load() }, [load])
   const h = new Date().getHours()
   const sync = backupAge(d && d.sync)
@@ -82,7 +86,7 @@ function Home({ go }) {
       <header className="top">
         <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">{APP}</h1>
           {d && <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>}</div>
-        <div className="actions"><button className="icon" onClick={load} aria-label="Refresh">{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
+        <div className="actions"><button className="icon" onClick={refresh} disabled={spin} aria-label="Refresh" style={spin ? { opacity: 0.5 } : undefined}>{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
       </header>
       {err && <p className="error pad">{err}</p>}
       <section className="kpis">

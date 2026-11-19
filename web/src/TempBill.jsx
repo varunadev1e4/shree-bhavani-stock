@@ -6,7 +6,7 @@ import { exportPdf } from './exporter'
 // Temporary bills: for goods sent out before they are billed in Profit Maker.
 // They are stored only in this app's own table (temp_bills). Nothing is written to Profit Maker or its backups.
 const r2 = (v) => Math.round((Number(v) || 0) * 100) / 100
-const lineAmt = (l) => r2((Number(l.qty) || 0) * (Number(l.rate) || 0))
+const lineAmt = (l) => r2((Number(l.qty) || 0) * (Number(l.rate) || 0) * (1 - (Number(l.disc) || 0) / 100)) // after discount, before GST
 const totals = (lines) => {
   const taxable = lines.reduce((s, l) => s + lineAmt(l), 0)
   const gst = lines.reduce((s, l) => s + lineAmt(l) * ((Number(l.gst) || 0) / 100), 0)
@@ -16,10 +16,11 @@ const dmy = (iso) => new Date(iso).toLocaleDateString('en-IN', { day: '2-digit',
 
 async function slipPdf(b) {
   const t = { taxable: b.taxable, gst: b.gst_amt, total: b.total }
-  const rows = b.lines.map((l, i) => [i + 1, l.name, l.pack || '', l.batch || '', l.exp ? fmtExp(l.exp) : '', num(l.qty), l.free ? num(l.free) : '', num(l.rate), (l.gst || 0) + '%', num(lineAmt(l))])
-  rows.push(['', 'Taxable value', '', '', '', '', '', '', '', num(t.taxable)], ['', 'GST', '', '', '', '', '', '', '', num(t.gst)], ['', 'TOTAL', '', '', '', '', '', '', '', num(t.total)])
+  const rows = b.lines.map((l, i) => [i + 1, l.name, l.pack || '', l.batch || '', l.exp ? fmtExp(l.exp) : '', num(l.qty), l.free ? num(l.free) : '', num(l.rate), l.disc ? l.disc + '%' : '', (l.gst || 0) + '%', num(lineAmt(l))])
+  const e = ['', '', '', '', '', '', '', '', '']
+  rows.push(['', 'Taxable value', ...e.slice(1), num(t.taxable)], ['', 'GST', ...e.slice(1), num(t.gst)], ['', 'TOTAL', ...e.slice(1), num(t.total)])
   await exportPdf({ title: 'TEMPORARY BILL ' + b.bill_no + ' (not a tax invoice, final bill to follow)', subtitle: 'To: ' + b.party_name + ' | Date: ' + dmy(b.created_at) + (b.note ? ' | ' + b.note : ''),
-    columns: ['#', 'Product', 'Pack', 'Batch', 'Exp', 'Qty', 'Free', 'Rate', 'GST', 'Amount'], rows, bold: [rows.length - 3, rows.length - 2, rows.length - 1], numCols: [0, 5, 6, 7, 8, 9], filename: b.bill_no })
+    columns: ['#', 'Product', 'Pack', 'Batch', 'Exp', 'Qty', 'Free', 'Rate', 'Disc', 'GST', 'Amount'], rows, bold: [rows.length - 3, rows.length - 2, rows.length - 1], numCols: [0, 5, 6, 7, 8, 9, 10], filename: b.bill_no })
 }
 
 function Picker({ stock, onPick }) {
@@ -46,21 +47,35 @@ function NewBill({ onSaved }) {
   const [party, setParty] = useState(null)
   const [note, setNote] = useState('')
   const [lines, setLines] = useState([])
+  const [choose, setChoose] = useState(null) // { s, batches } while picking a batch
+  const [reserved, setReserved] = useState({}) // qty already on pending temporary bills, per product|batch
+  const [bulk, setBulk] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   useEffect(() => {
     fetchAll('parties', 'id,name,city,deleted').then((p) => setParties(p.filter((x) => !x.deleted))).catch(() => {})
     fetchAll('stock_summary', 'id,name,packing,company,gst,total_qty').then(setStock).catch(() => {})
+    supabase.from('temp_bills').select('lines').eq('status', 'pending').then(({ data }) => {
+      const m = {}
+      ;(data || []).forEach((b) => b.lines.forEach((l) => { const k = l.pid + '|' + l.batch; m[k] = (m[k] || 0) + (Number(l.qty) || 0) + (Number(l.free) || 0) }))
+      setReserved(m)
+    })
   }, [])
   const phits = useMemo(() => { const w = pq.trim().toLowerCase(); return w && !party ? parties.filter((p) => (p.name + ' ' + (p.city || '')).toLowerCase().includes(w)).slice(0, 6) : [] }, [pq, parties, party])
   const T = totals(lines)
 
+  // Step 1: show every batch with how many are still free to bill (stock minus what other pending slips already hold)
   const addProduct = async (s) => {
-    const { data } = await supabase.from('batches').select('batch_no,exp_month,exp_year,qty,bill_price').eq('product_id', s.id).gt('qty', 0).order('exp_year').order('exp_month').limit(1)
-    const b = data && data[0], gst = Number(s.gst) || 0
-    setLines((l) => [...l, { name: s.name, pack: s.packing, batch: b ? b.batch_no : '', exp: b ? b.exp_year * 100 + b.exp_month : null, gst, qty: 1, free: 0,
-      rate: b ? r2(Number(b.bill_price) / (1 + gst / 100)) : 0 }])
+    const { data } = await supabase.from('batches').select('id,batch_no,exp_month,exp_year,qty,bill_price').eq('product_id', s.id).gt('qty', 0).order('exp_year').order('exp_month')
+    setChoose({ s, batches: data || [] })
   }
+  const avail = (pid, b) => Math.max(0, Number(b.qty) - (reserved[pid + '|' + b.batch_no] || 0) - lines.filter((l) => l.pid === pid && l.batch === b.batch_no).reduce((x, l) => x + (Number(l.qty) || 0) + (Number(l.free) || 0), 0))
+  const addBatch = (s, b) => {
+    const gst = Number(s.gst) || 0
+    setLines((l) => [...l, { pid: s.id, name: s.name, pack: s.packing, batch: b.batch_no, exp: b.exp_year * 100 + b.exp_month, gst, qty: 1, free: 0, disc: Number(bulk) || 0, rate: r2(Number(b.bill_price) / (1 + gst / 100)), stock: Number(b.qty) }])
+    setChoose(null)
+  }
+  const applyBulk = (v) => { setBulk(v); setLines((l) => l.map((x) => ({ ...x, disc: Number(v) || 0 }))) }
   const edit = (i, k, v) => setLines((l) => l.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
 
   const save = async () => {
@@ -94,16 +109,28 @@ function NewBill({ onSaved }) {
         {phits.map((p) => <button key={p.id} className="more" style={{ marginTop: 6, textAlign: 'left', color: 'inherit', borderStyle: 'solid' }} onClick={() => setParty(p)}><b>{p.name}</b> <span className="muted small">{p.city}</span></button>)}
       </div>
       <Picker stock={stock} onPick={addProduct} />
-      {lines.map((l, i) => (
+      {choose && (
+        <div className="chartcard" style={{ display: 'grid', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{choose.s.name} <span className="muted small">{choose.s.packing}</span></b><button className="ghost sm" onClick={() => setChoose(null)}>Cancel</button></div>
+          {!choose.batches.length && <span className="muted small">No stock in any batch.</span>}
+          {choose.batches.map((b) => { const a = avail(choose.s.id, b), held = reserved[choose.s.id + '|' + b.batch_no] || 0; return (
+            <button key={b.id} className="more" style={{ marginTop: 0, textAlign: 'left', color: 'inherit', borderStyle: 'solid', opacity: a > 0 ? 1 : 0.55 }} onClick={() => addBatch(choose.s, b)}>
+              <b>{b.batch_no}</b> <span className="muted small">exp {fmtExp(b.exp_year * 100 + b.exp_month)} | in stock {num(b.qty)}{held ? ' | on pending slips ' + num(held) : ''}</span>
+              <br /><b style={{ color: a > 0 ? 'var(--good)' : 'var(--bad)' }}>{num(a)} available to bill</b>
+            </button>) })}
+        </div>)}
+      {lines.length > 1 && <label className="muted small">Discount % for all lines<input className="fsel" style={{ width: '100%', boxSizing: 'border-box' }} type="number" inputMode="decimal" value={bulk} onChange={(e) => applyBulk(e.target.value)} /></label>}
+      {lines.map((l, i) => { const used = (Number(l.qty) || 0) + (Number(l.free) || 0), room = l.stock - (reserved[l.pid + '|' + l.batch] || 0); return (
         <div key={i} className="chartcard" style={{ display: 'grid', gap: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{l.name} <span className="muted small">{l.pack} {l.batch ? '| ' + l.batch : ''} {l.exp ? '| exp ' + fmtExp(l.exp) : ''}</span></b>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{l.name} <span className="muted small">{l.pack} | batch {l.batch} | exp {fmtExp(l.exp)}</span></b>
             <button className="ghost sm" onClick={() => setLines((x) => x.filter((_, j) => j !== i))}>Remove</button></div>
-          <div className="fgrid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-            {[['qty', 'Qty'], ['free', 'Free'], ['rate', 'Rate (before GST)']].map(([k, lab]) => (
+          <div className="fgrid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            {[['qty', 'Qty'], ['free', 'Free'], ['rate', 'Rate (before GST)'], ['disc', 'Discount %']].map(([k, lab]) => (
               <label key={k} className="muted small">{lab}<input className="fsel" style={{ width: '100%', boxSizing: 'border-box' }} type="number" inputMode="decimal" value={l[k]} onChange={(e) => edit(i, k, e.target.value)} /></label>))}
           </div>
-          <span className="muted small">GST {l.gst}% | amount {rs(lineAmt(l))} before GST</span>
-        </div>))}
+          <span className="muted small">GST {l.gst}% | amount {rs(lineAmt(l))} before GST | available in this batch {num(Math.max(0, room))}</span>
+          {used > room && <span className="error small">Only {num(Math.max(0, room))} available in this batch. Reduce the quantity or add another batch of this product.</span>}
+        </div>) })}
       <input className="fsel" style={{ width: '100%', boxSizing: 'border-box' }} placeholder="Note (optional, e.g. sent with driver Ravi)" value={note} onChange={(e) => setNote(e.target.value)} />
       {lines.length > 0 && (
         <div className="chartcard" style={{ display: 'grid', gap: 4 }}>
