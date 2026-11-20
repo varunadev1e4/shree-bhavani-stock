@@ -1,5 +1,6 @@
 # Creates two Windows scheduled tasks that run from THIS folder:
 #   ProfitAutoBackup : every 2 hours, makes a backup zip
+#   SBMAGoldenBackup : every day at 7:45 pm, saves a golden backup zip of everything in Supabase
 #   StockSync        : every 30 minutes, uploads to Supabase (32-bit PowerShell, needed for the Access driver)
 $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ps32 = Join-Path $env:WINDIR "SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
@@ -19,6 +20,7 @@ function Add-Task($name, $exe, $script, $minuteOffset, $everyMinutes) {
 }
 Add-Task "ProfitAutoBackup" $ps64 "auto-backup.ps1" 0 120
 Add-Task "StockSync" $ps32 "sync.ps1" 10 30
+Add-Task "SBMAGoldenBackup" $ps64 "backup-supabase.ps1" 1185 1440
 Write-Host ""
 Write-Host "Starting both once now to test..."
 Start-ScheduledTask -TaskName "ProfitAutoBackup"
