@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchAll, rs, num, fmtExp, expState, waLink, L, addYm, SHOP } from './util'
 import Trends from './Trends'
 import Analysis from './Analysis'
@@ -216,6 +216,11 @@ function Margins({ fys }) {
 
 export default function Insights() {
   const [tab, setTab] = useState('overview')
+  const tref = useRef(null)
+  const [edge, setEdge] = useState({ l: false, r: true })
+  const chk = () => { const e = tref.current; if (e) setEdge({ l: e.scrollLeft > 8, r: e.scrollLeft + e.clientWidth < e.scrollWidth - 8 }) }
+  useEffect(() => { chk(); window.addEventListener('resize', chk); return () => window.removeEventListener('resize', chk) }, [])
+  const go = (d) => { const e = tref.current; if (e) e.scrollBy({ left: d * 200, behavior: 'smooth' }) }
   const [stock, setStock] = useState([])
   const [parties, setParties] = useState([])
   const [fm, setFm] = useState([])
@@ -231,7 +236,11 @@ export default function Insights() {
   return (
     <div className="app">
       <header className="top"><h1 className="h1">Insights</h1></header>
-      <div className="qchips">{TABS.map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}</div>
+      <div className="tabscroll">
+        {edge.l && <button className="tarrow l" aria-label="Scroll left" onClick={() => go(-1)}>‹</button>}
+        <div className="qchips" ref={tref} onScroll={chk}>{TABS.map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}</div>
+        {edge.r && <button className="tarrow r" aria-label="Scroll right" onClick={() => go(1)}>›</button>}
+      </div>
       <div style={{ marginTop: 12 }}>
         {tab === 'overview' && <Analysis stock={stock} parties={parties} fys={fys} latest={latest} />}
         {tab === 'stmt' && <Statement stock={stock} />}

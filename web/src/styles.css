@@ -116,3 +116,7 @@ button,input,select { font:inherit; color:inherit; } button { cursor:pointer; } 
 .fsheet .qchips { flex-wrap:wrap; overflow:visible; margin-top:0; }
 .fsheet .fgrid, .fsheet .dates { margin-top:8px; }
 .fsheet .fgrid select, .fsheet .fsel, .fsheet .dates input { background:var(--card); border:1px solid var(--line); box-shadow:none; }
+.tabscroll { position:relative; }
+.tarrow { position:absolute; top:50%; transform:translateY(-50%); margin-top:5px; width:34px; height:34px; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--accent); font-size:24px; line-height:1; font-weight:700; box-shadow:var(--shadow); z-index:2; padding:0 0 3px; }
+.tarrow.r { right:0; animation:nudge 1.2s ease-in-out infinite; } .tarrow.l { left:0; }
+@keyframes nudge { 0%,100% { transform:translateY(-50%) translateX(0); } 50% { transform:translateY(-50%) translateX(-4px); } }
