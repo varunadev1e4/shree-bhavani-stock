@@ -45,7 +45,7 @@ try {
     $monthly.Add([ordered]@{ fy = $Fy; ym = $ym; kind = ([string]$r["tt"]).Trim(); bills = [int]$r["n"]; amount = [Math]::Round([double]$r["amt"], 2) })
   }
   $prod = New-Object System.Collections.Generic.List[object]
-  $sqlP = "SELECT $ymT AS ym, p.[Name] AS pn, c.[Name] AS cn, SUM(i.Qty) AS q, SUM(i.TaxValue * (1 + IIf(IsNull(i.GstPer),0,i.GstPer) / 100)) AS amt, SUM(i.TaxValue) AS amtx, SUM((i.Qty + IIf(IsNull(i.Free),0,i.Free)) * IIf(IsNull(b.CostPrice),0,b.CostPrice)) AS cst FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY $ymT, p.[Name], c.[Name]"
+  $sqlP = "SELECT $ymT AS ym, p.[Name] AS pn, c.[Name] AS cn, SUM(i.Qty) AS q, SUM(i.TaxValue * (1 + IIf(IsNull(i.GstPer),0,i.GstPer) / 100)) AS amt, SUM(i.TaxValue) AS amtx, SUM((i.Qty + IIf(IsNull(i.Free),0,i.Free)) * IIf(IsNull(b.ActCostPrice),0,b.ActCostPrice)) AS cst FROM (((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY $ymT, p.[Name], c.[Name]"
   foreach ($r in (Rows $sqlP).Rows) {
     if ($r["ym"] -is [DBNull] -or $r["pn"] -is [DBNull]) { continue }
     $ym = [int]$r["ym"]; if ($ym -lt $lo -or $ym -gt $hi) { continue }

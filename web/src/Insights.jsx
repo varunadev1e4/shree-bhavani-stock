@@ -161,13 +161,13 @@ function Margins({ fys }) {
     setRows(null)
     fetchAll('fy_product_monthly', 'product,company,amount,amount_ex,cost', (q) => q.eq('fy', fy)).then(setRows).catch(() => setRows([]))
   }, [fy])
-  const { items, sales, cost } = useMemo(() => {
-    const m = new Map(); let s = 0, c = 0
+  const { items, sales, salesInc, cost } = useMemo(() => {
+    const m = new Map(); let s = 0, c = 0, si = 0
     ;(rows || []).forEach((r) => {
       const k = (by === 'company' ? r.company : r.product) || 'Other', e = m.get(k) || { a: 0, c: 0 }
-      const am = Number(r.amount_ex) || Number(r.amount); e.a += am; e.c += Number(r.cost) || 0; m.set(k, e); s += am; c += Number(r.cost) || 0
+      const am = Number(r.amount_ex) || Number(r.amount); e.a += am; e.c += Number(r.cost) || 0; m.set(k, e); s += am; si += Number(r.amount) || 0; c += Number(r.cost) || 0
     })
-    return { items: [...m.entries()].map(([k, e]) => ({ k, m: e.a - e.c, pct: e.a ? ((e.a - e.c) / e.a) * 100 : 0, a: e.a })).sort((x, y) => y.m - x.m).slice(0, 15), sales: s, cost: c }
+    return { items: [...m.entries()].map(([k, e]) => ({ k, m: e.a - e.c, pct: e.a ? ((e.a - e.c) / e.a) * 100 : 0, a: e.a })).sort((x, y) => y.m - x.m).slice(0, 15), sales: s, salesInc: si, cost: c }
   }, [rows, by])
   const mx = Math.max(1, ...items.map((i) => i.m))
   return (
@@ -181,7 +181,11 @@ function Margins({ fys }) {
       {rows && cost > 0 && (
         <>
           <div className="total"><span>Estimated margin, {fy}</span><b>{L(sales - cost)}</b><span>{(((sales - cost) / sales) * 100).toFixed(1)}%</span></div>
-          <p className="count muted">Estimate: sales before GST minus batch cost price. Check one product against your own figures.</p>
+          <div className="chartcard" style={{ margin: '8px 0 0', display: 'grid', gap: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Profit as Profit Maker shows</span><b>{L(salesInc - cost)}</b></div>
+            <span className="muted small">Profit Maker takes the bill total including GST minus the actual cost price. That includes the GST you collected ({L(salesInc - sales)}), which you have to pay to the government, so it is not real profit. The margin above leaves GST out.</span>
+          </div>
+          <p className="count muted">Margin = sales before GST minus actual cost price of goods sold (paid plus free quantity). Sales returns are not deducted, same as Profit Maker.</p>
           <div className="chartcard"><ul className="bars">{items.map((i) => (
             <li key={i.k}><div className="bl"><span>{i.k}</span><b>{L(i.m)} · {i.pct.toFixed(0)}%</b></div><div className="bt"><div className="bf" style={{ width: Math.max(0, (i.m / mx) * 100) + '%' }} /></div></li>
           ))}</ul></div>
