@@ -21,8 +21,13 @@ function metrics(bills, fp, days) {
   const byParty = new Map(); S.forEach((b) => byParty.set(b.name, (byParty.get(b.name) || 0) + Number(b.net)))
   const top = [...byParty.entries()].sort((a, b) => b[1] - a[1])
   const sx = fp.reduce((s, r) => s + Number(r.amount_ex || 0), 0), cost = fp.reduce((s, r) => s + Number(r.cost || 0), 0)
+  // Margin before GST = the profit Profit Maker stored on each bill, less the NET GST in it (GST collected on sales minus GST paid when buying those goods).
+  const st = fp.stored || [], stNet = st.reduce((s, r) => s + Number(r.net || 0), 0), stMg = st.reduce((s, r) => s + Number(r.margin || 0), 0)
+  const stEx = st.reduce((s, r) => s + Number(r.sales_ex || 0), 0), stIn = st.reduce((s, r) => s + Number(r.gst_in || 0), 0)
+  const exact = st.length > 0 && stEx > 0
+  const gp = exact ? stMg - (stNet - stEx - stIn) : sx - cost
   return { sales, purch, bills: S.length, credit, cash: sales - credit, parties: byParty.size, top, top5: top.slice(0, 5).reduce((s, x) => s + x[1], 0),
-    gp: sx - cost, gpPct: sx ? ((sx - cost) / sx) * 100 : 0, cost, days, avg: S.length ? sales / S.length : 0 }
+    gp, gpPct: sx ? (gp / sx) * 100 : 0, cost, days, avg: S.length ? sales / S.length : 0 }
 }
 
 export default function CA() {
@@ -55,9 +60,11 @@ export default function CA() {
       g('parties', 'receivable,payable,deleted'),
       g('expenses', 'amount', (q) => q.gte('d', sp.from).lte('d', sp.to), 'ex:' + ym),
       g('expenses', 'amount', (q) => q.gte('d', sq.from).lte('d', sq.to), 'exp:' + ym),
+      g('fy_margin_monthly', 'net,margin', (q) => q.eq('ym', ym), 'mg:' + ym),
+      g('fy_margin_monthly', 'net,margin', (q) => q.eq('ym', prevYm(ym)), 'mgp:' + ym),
       g('employees', '*', null, 'emps'),
       g('emp_entries', '*', null, 'ents'),
-    ]).then(([b, p, h, f, fpv, s, pa, e1, e0, em, en]) => { if (stale) return; setBills(b); setPrev(p); setHsn(h); setFp(f); setFpPrev(fpv); setStock(s); setParties(pa); setExp(e1); setExpPrev(e0); setEmps(em); setEnts(en) })
+    ]).then(([b, p, h, f, fpv, s, pa, e1, e0, m1, m0, em, en]) => { if (stale) return; f.stored = m1; fpv.stored = m0; setBills(b); setPrev(p); setHsn(h); setFp(f); setFpPrev(fpv); setStock(s); setParties(pa); setExp(e1); setExpPrev(e0); setEmps(em); setEnts(en) })
     return () => { stale = true }
   }, [ym])
 

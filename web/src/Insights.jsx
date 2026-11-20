@@ -153,6 +153,7 @@ function Overdue({ parties }) {
 
 function Margins({ fys }) {
   const [fy, setFy] = useState('')
+  const [stored, setStored] = useState([])
   const [by, setBy] = useState('company')
   const [rows, setRows] = useState(null)
   useEffect(() => { if (!fy && fys.length) setFy(fys[fys.length - 1]) }, [fys, fy])
@@ -160,6 +161,7 @@ function Margins({ fys }) {
     if (!fy) return
     setRows(null)
     fetchAll('fy_product_monthly', 'product,company,amount,amount_ex,cost', (q) => q.eq('fy', fy)).then(setRows).catch(() => setRows([]))
+    fetchAll('fy_margin_monthly', 'net,margin', (q) => q.eq('fy', fy)).then(setStored).catch(() => setStored([]))
   }, [fy])
   const { items, sales, salesInc, cost } = useMemo(() => {
     const m = new Map(); let s = 0, c = 0, si = 0
@@ -180,12 +182,27 @@ function Margins({ fys }) {
       {rows && cost <= 0 && <Empty t="No cost data yet. Re-run the history upload for this year." />}
       {rows && cost > 0 && (
         <>
-          <div className="total"><span>Estimated margin, {fy}</span><b>{L(sales - cost)}</b><span>{(((sales - cost) / sales) * 100).toFixed(1)}%</span></div>
-          <div className="chartcard" style={{ margin: '8px 0 0', display: 'grid', gap: 4 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Profit as Profit Maker shows</span><b>{L(salesInc - cost)}</b></div>
-            <span className="muted small">Profit Maker takes the bill total including GST minus the actual cost price. That includes the GST you collected ({L(salesInc - sales)}), which you have to pay to the government, so it is not real profit. The margin above leaves GST out.</span>
-          </div>
-          <p className="count muted">Margin = sales before GST minus actual cost price of goods sold (paid plus free quantity). Sales returns are not deducted, same as Profit Maker.</p>
+          {(() => {
+            const sum = (k) => stored.reduce((a, r) => a + Number(r[k] || 0), 0)
+            const sNet = sum('net'), sMg = sum('margin'), sEx = sum('sales_ex'), gIn = sum('gst_in')
+            const exact = stored.length > 0 && sEx > 0
+            const gstOut = exact ? sNet - sEx : salesInc - sales, netGst = gstOut - (exact ? gIn : 0)
+            const pmProfit = exact ? sMg : salesInc - cost, gp = exact ? sMg - netGst : sales - cost
+            return (
+              <>
+                <div className="total"><span>Margin before GST, {fy}</span><b>{L(gp)}</b><span>{(exact ? sEx : sales) ? ((gp / (exact ? sEx : sales)) * 100).toFixed(1) : '0.0'}%</span></div>
+                <div className="chartcard" style={{ margin: '8px 0 0', display: 'grid', gap: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Profit as Profit Maker shows</span><b>{L(pmProfit)}</b></div>
+                  {exact && <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">GST collected on sales</span><span>{L(gstOut)}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">GST you paid when buying those goods</span><span>- {L(gIn)}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">Net GST inside the profit (goes to government)</span><span>{L(netGst)}</span></div>
+                  </>}
+                  <span className="muted small">{exact ? 'Profit Maker counts the purchase cost with GST, so only the net GST (collected minus paid) is taken out, not the full GST. This assumes you claim input credit on your purchases.' : 'Estimate from current batch cost prices. Reload this year with history.ps1 to get the exact figure.'}</span>
+                </div>
+                <p className="count muted">{exact ? 'The company and product list below uses current batch cost prices, so it can differ a little from the total.' : ''} Sales returns are not deducted, same as Profit Maker.</p>
+              </>)
+          })()}
           <div className="chartcard"><ul className="bars">{items.map((i) => (
             <li key={i.k}><div className="bl"><span>{i.k}</span><b>{L(i.m)} · {i.pct.toFixed(0)}%</b></div><div className="bt"><div className="bf" style={{ width: Math.max(0, (i.m / mx) * 100) + '%' }} /></div></li>
           ))}</ul></div>

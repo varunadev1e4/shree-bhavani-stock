@@ -123,6 +123,18 @@ try {
   }
   $opening = New-Object System.Collections.Generic.List[object]
   foreach ($r in (Rows "SELECT RndId, OpBal FROM Accounts WHERE SubGroupId IN (2,3)").Rows) { $opening.Add([ordered]@{ fy = $Fy; acc_id = [int]$r["RndId"]; op = (N $r["OpBal"]) }) }
+  # Profit exactly as Profit Maker shows it: the profit it stored on each sales bill, added up by month.
+  # Also the sales before GST and the GST paid when buying the goods that were sold, so GST can be taken out properly.
+  $mx = @{}
+  $sqlX = "SELECT Year(m.FeedDate)*100+Month(m.FeedDate) AS ym, SUM(i.TaxValue) AS ex, SUM((i.Qty+IIf(IsNull(i.Free),0,i.Free))*IIf(IsNull(b.ActCostPrice),0,b.ActCostPrice)*IIf(IsNull(i.GstPer),0,i.GstPer)/(100+IIf(IsNull(i.GstPer),0,i.GstPer))) AS gin FROM (TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY Year(m.FeedDate)*100+Month(m.FeedDate)"
+  foreach ($r in (Rows $sqlX).Rows) { if ($r["ym"] -isnot [DBNull]) { $mx[[int]$r["ym"]] = @{ ex = (N $r["ex"]); gin = (N $r["gin"]) } } }
+  $mrg = New-Object System.Collections.Generic.List[object]
+  foreach ($r in (Rows "SELECT Year(m.FeedDate)*100+Month(m.FeedDate) AS ym, COUNT(*) AS n, SUM(m.NetAmt) AS net, SUM(m.Margin) AS mg FROM TranMain m WHERE m.TranType='S' GROUP BY Year(m.FeedDate)*100+Month(m.FeedDate)").Rows) {
+    if ($r["ym"] -is [DBNull]) { continue }
+    $ym = [int]$r["ym"]; if ($ym -lt $lo -or $ym -gt $hi) { continue }
+    $x = $mx[$ym]
+    $mrg.Add([ordered]@{ fy = $Fy; ym = $ym; bills = [int]$r["n"]; net = (N $r["net"]); margin = (N $r["mg"]); sales_ex = $(if ($x) { $x.ex } else { 0 }); gst_in = $(if ($x) { $x.gin } else { 0 }) })
+  }
   Write-Host ("{0}: {1} monthly rows, {2} product rows, {3} party rows, {4} bill lines" -f $Fy, $monthly.Count, $prod.Count, $party.Count, $lines.Count)
   if ($monthly.Count -eq 0) { throw "No transactions found for $Fy (check the file)" }
 
@@ -137,6 +149,7 @@ try {
   Replace-Table "fy_monthly" $monthly
   Replace-Table "fy_product_monthly" $prod
   Replace-Table "fy_party_monthly" $party
+  Replace-Table "fy_margin_monthly" $mrg
   Replace-Table "sales_lines" $lines
   Replace-Table "gst_bills" $bills
   Replace-Table "hsn_monthly" $hsn
