@@ -67,7 +67,7 @@ export const latestSync = () => cached('sync', async () => {
   if (error) throw error
   return data && data[0]
 })
-export const L = (v) => (v >= 1e7 ? '\u20B9' + (v / 1e7).toFixed(2) + ' Cr' : v >= 1e5 ? '\u20B9' + (v / 1e5).toFixed(1) + ' L' : '\u20B9' + Math.round(v).toLocaleString('en-IN'))
+export const L = (v) => (v < 0 ? '-' + L(-v) : v >= 1e7 ? '\u20B9' + (v / 1e7).toFixed(2) + ' Cr' : v >= 1e5 ? '\u20B9' + (v / 1e5).toFixed(1) + ' L' : '\u20B9' + Math.round(v).toLocaleString('en-IN'))
 export const addYm = (ym, n) => { const t = Math.floor(ym / 100) * 12 + (ym % 100 - 1) + n; return Math.floor(t / 12) * 100 + (t % 12) + 1 }
 
 // Shop branding. Other shops set VITE_APP_NAME and VITE_SHOP_NAME in Vercel.

@@ -6,8 +6,10 @@ import ExportBar from './Export'
 import Reports from './Reports'
 import Statement from './Statement'
 import CA from './CA'
+import PayHabits from './PayHabits'
+import CashFlow from './CashFlow'
 
-const TABS = [['overview', 'Overview'], ['stmt', 'Stock & Sales'], ['ca', 'CA & GST'], ['reports', 'Reports'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['margin', 'Margins']]
+const TABS = [['overview', 'Overview'], ['stmt', 'Stock & Sales'], ['ca', 'CA & GST'], ['reports', 'Reports'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['pay', 'Pay habits'], ['cash', 'Cash flow'], ['margin', 'Margins']]
 const AGE = [['0-30', '#16a34a'], ['31-60', '#d97706'], ['61-90', '#ea580c'], ['90+', '#dc2626']]
 const lc = (s) => String(s || '').toLowerCase()
 const phoneOf = (p) => p && (p.phone || p.phone2)
@@ -198,7 +200,7 @@ function Margins({ fys }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">GST you paid when buying those goods</span><span>- {L(gIn)}</span></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">Net GST inside the profit (goes to government)</span><span>{L(netGst)}</span></div>
                   </>}
-                  <span className="muted small">{exact ? 'Profit Maker counts the purchase cost with GST, so only the net GST (collected minus paid) is taken out, not the full GST. This assumes you claim input credit on your purchases.' : 'Estimate from current batch cost prices. Reload this year with history.ps1 to get the exact figure.'}</span>
+                  {exact && <span className="muted small">Profit Maker counts the purchase cost with GST, so only the net GST (collected minus paid) is taken out, not the full GST. This assumes you claim input credit on your purchases.</span>}
                 </div>
                 <p className="count muted">{exact ? 'The company and product list below uses current batch cost prices, so it can differ a little from the total.' : ''} Sales returns are not deducted, same as Profit Maker.</p>
               </>)
@@ -240,6 +242,8 @@ export default function Insights() {
         {tab === 'slow' && <Slow stock={stock} />}
         {tab === 'quiet' && <Quiet latest={latest} parties={parties} />}
         {tab === 'overdue' && <Overdue parties={parties} />}
+        {tab === 'pay' && <PayHabits />}
+        {tab === 'cash' && <CashFlow fys={fys} />}
         {tab === 'margin' && <Margins fys={fys} />}
       </div>
     </div>

@@ -123,6 +123,13 @@ try {
   }
   $opening = New-Object System.Collections.Generic.List[object]
   foreach ($r in (Rows "SELECT RndId, OpBal FROM Accounts WHERE SubGroupId IN (2,3)").Rows) { $opening.Add([ordered]@{ fy = $Fy; acc_id = [int]$r["RndId"]; op = (N $r["OpBal"]) }) }
+  # Every payment received and the bill it was against (to see how many days each customer takes to pay)
+  $pays = New-Object System.Collections.Generic.List[object]
+  foreach ($r in (Rows "SELECT h.AccId AS aid, i.FeedNo AS bn, i.FeedDate AS bd, i.RcvdDate AS rd, i.RcvdAmt AS amt FROM AccInv i INNER JOIN AccHead h ON i.AHeadId = h.RndId WHERE h.TranType = 'RS' AND i.RcvdAmt > 0").Rows) {
+    if ($r["rd"] -is [DBNull] -or $r["bd"] -is [DBNull] -or $r["aid"] -is [DBNull]) { continue }
+    $rd = [datetime]$r["rd"]; if ($rd -lt $fyStart -or $rd -ge $fyStart.AddYears(1)) { continue }
+    $pays.Add([ordered]@{ fy = $Fy; acc_id = [int]$r["aid"]; bill_no = (S $r["bn"]); bill_date = ([datetime]$r["bd"]).ToString("yyyy-MM-dd"); paid_date = $rd.ToString("yyyy-MM-dd"); amount = (N $r["amt"]) })
+  }
   # Profit exactly as Profit Maker shows it: the profit it stored on each sales bill, added up by month.
   # Also the sales before GST and the GST paid when buying the goods that were sold, so GST can be taken out properly.
   $mx = @{}
@@ -149,12 +156,14 @@ try {
   Replace-Table "fy_monthly" $monthly
   Replace-Table "fy_product_monthly" $prod
   Replace-Table "fy_party_monthly" $party
-  Replace-Table "fy_margin_monthly" $mrg
   Replace-Table "sales_lines" $lines
   Replace-Table "gst_bills" $bills
   Replace-Table "hsn_monthly" $hsn
   Replace-Table "ledger_entries" $led
   Replace-Table "party_opening" $opening
+  foreach ($t in @(@("fy_margin_monthly", $mrg), @("bill_payments", $pays))) {
+    try { Replace-Table $t[0] $t[1] } catch { Write-Host ("Skipped " + $t[0] + " (run its migration in Supabase first): " + $_.Exception.Message) -ForegroundColor Yellow }
+  }
   Write-Host "History uploaded for $Fy"
 }
 finally {
