@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { fetchAll, clearMem, num, fmtExp } from './util'
 import { exportPdf } from './exporter'
+import { askConfirm, askPrompt } from './dialog'
 
 // Temporary bills: for goods sent out before they are billed in Profit Maker.
 // They are stored only in this app's own table (temp_bills). Nothing is written to Profit Maker or its backups.
@@ -132,11 +133,11 @@ function Pending({ refreshKey }) {
       .then(({ data }) => setRows(data || []))
   }, [show, refreshKey, n])
   const done = async (b) => {
-    const pm = window.prompt('Profit Maker bill number (optional):', '')
+    const pm = await askPrompt('Profit Maker bill number (optional):', '')
     if (pm === null) return
     await supabase.from('temp_bills').update({ status: 'billed', pm_bill_no: pm || null, billed_at: new Date().toISOString() }).eq('id', b.id); setN(n + 1)
   }
-  const del = async (b) => { if (window.confirm('Delete ' + b.bill_no + '?')) { await supabase.from('temp_bills').delete().eq('id', b.id); setN(n + 1) } }
+  const del = async (b) => { if (await askConfirm('Delete ' + b.bill_no + '?')) { await supabase.from('temp_bills').delete().eq('id', b.id); setN(n + 1) } }
   const wa = (b) => {
     const t = b.lines.map((l) => l.name + ' x ' + num(l.qty) + ' (batch ' + (l.batch || '-') + ')').join('\n')
     window.open('https://wa.me/?text=' + encodeURIComponent('Temporary bill ' + b.bill_no + ' (' + dmy(b.created_at) + ')\n' + b.party_name + '\n' + t + '\nGoods sent. Final bill to follow.'), '_blank')

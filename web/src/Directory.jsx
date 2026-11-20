@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { fetchAll, waLink, SHOP } from './util'
 import ExportBar from './Export'
+import { askConfirm } from './dialog'
 
 // Directory: companies, customers, suppliers and their contact people.
 // Saved only in this app's own tables (directory, directory_people). Nothing is written to Profit Maker.
@@ -72,8 +73,8 @@ export default function Directory() {
     if (r.error) return 'Could not save: ' + r.error.message
     setForm(null); load()
   }
-  const delEntity = async (r) => { if (window.confirm('Delete ' + r.name + ' and all its contact people?')) { await supabase.from('directory').delete().eq('id', r.id); setOpen(null); load() } }
-  const delPerson = async (p) => { if (window.confirm('Delete ' + p.name + '?')) { await supabase.from('directory_people').delete().eq('id', p.id); load() } }
+  const delEntity = async (r) => { if (await askConfirm('Delete ' + r.name + ' and all its contact people?')) { await supabase.from('directory').delete().eq('id', r.id); setOpen(null); load() } }
+  const delPerson = async (p) => { if (await askConfirm('Delete ' + p.name + '?')) { await supabase.from('directory_people').delete().eq('id', p.id); load() } }
 
   const build = () => ({
     title: 'Directory: ' + KINDS.find((k) => k[0] === kind)[1], subtitle: SHOP + ' | ' + list.length + ' entries', filename: 'directory-' + kind,

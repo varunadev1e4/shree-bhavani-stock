@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import { DialogHost } from './dialog'
 import './styles.css'
 
 // A shop with its own name (set VITE_APP_NAME / VITE_SHOP_NAME in Vercel) gets its own install name.
@@ -48,7 +49,7 @@ function showError(msg) {
 window.addEventListener('error', (e) => showError(e.message))
 window.addEventListener('unhandledrejection', (e) => showError(String((e.reason && e.reason.message) || e.reason)))
 
-ReactDOM.createRoot(document.getElementById('root')).render(<Boundary><App /></Boundary>)
+ReactDOM.createRoot(document.getElementById('root')).render(<Boundary><App /><DialogHost /></Boundary>)
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))

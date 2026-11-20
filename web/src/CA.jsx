@@ -4,6 +4,7 @@ import { exportPdf, xlsxBlob, deliverMany } from './exporter'
 import MonthPick, { curYm } from './MonthPick'
 import { staffCost } from './staffcalc'
 import { salesRegister, purchaseRegister, hsnReport, gstSummary, dmy } from './gst'
+import { showMsg } from './dialog'
 
 const pad = (v) => String(v).padStart(2, '0')
 const ymLabel = (ym) => new Date(Math.floor(ym / 100), (ym % 100) - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
@@ -86,7 +87,7 @@ export default function CA() {
     Promise.all(FILES.map(make)).then((r) => { if (!stale) setReady(r) }).catch(() => {})
     return () => { stale = true }
   }, [bills, hsn])
-  const run = async (key, fn) => { setBusy(key); try { await fn() } catch (e) { alert('Could not make the file: ' + e.message) } setBusy('') }
+  const run = async (key, fn) => { setBusy(key); try { await fn() } catch (e) { showMsg('Could not make the file: ' + e.message) } setBusy('') }
   const shareAll = () => ready && deliverMany(ready, 'GST files ' + ymLabel(ym))
   const shareOne = (i) => ready && deliverMany([ready[i]], FILES[i][0] + ' ' + ymLabel(ym))
 

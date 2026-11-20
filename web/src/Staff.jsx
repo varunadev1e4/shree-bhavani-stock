@@ -4,6 +4,7 @@ import { rs, num, waLink, SHOP } from './util'
 import { exportPdf } from './exporter'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { calc, inMonth, daysIn } from './staffcalc'
+import { askConfirm, showMsg } from './dialog'
 
 // Staff: attendance exceptions, advances, salary. Saved only in this app's own tables, not connected to Profit Maker.
 const KINDS = [
@@ -55,7 +56,7 @@ function Detail({ emp, all, ym, setYm, reload, back, edit }) {
     if (error) return setErr('Could not save: ' + error.message)
     setKind(null); reload()
   }
-  const del = async (e) => { if (window.confirm('Delete this entry?')) { await supabase.from('emp_entries').delete().eq('id', e.id); reload() } }
+  const del = async (e) => { if (await askConfirm('Delete this entry?')) { await supabase.from('emp_entries').delete().eq('id', e.id); reload() } }
 
   const slipRows = () => [
     ['Basic salary (' + c.days + ' days)', c.salary], ['Unpaid leave: ' + c.unpaid + ' day(s)', -c.cut], ['Bonus / incentive', c.bonus], ['Other deductions', -c.other],
@@ -122,11 +123,11 @@ export default function Staff({ back }) {
   const saveEmp = async (f) => {
     const row = { name: f.name, role: f.role || null, phone: f.phone || null, salary: f.salary, join_date: f.join_date, active: f.active !== false }
     const { error } = f.id ? await supabase.from('employees').update(row).eq('id', f.id) : await supabase.from('employees').insert(row)
-    if (error) return alert('Could not save: ' + error.message)
+    if (error) return showMsg('Could not save: ' + error.message)
     setForm(null); reload()
   }
   const removeEmp = async (f) => {
-    if (!window.confirm('Delete ' + f.name + ' and all their entries? Use "Not working now" instead to keep the history.')) return
+    if (!await askConfirm('Delete ' + f.name + ' and all their entries? Use "Not working now" instead to keep the history.')) return
     await supabase.from('employees').delete().eq('id', f.id); setForm(null); setSel(null); reload()
   }
 

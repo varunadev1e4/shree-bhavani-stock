@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { fetchAll, num } from './util'
 import { exportPdf } from './exporter'
 import ExportBar from './Export'
+import { askConfirm, askPrompt } from './dialog'
 
 // Temporary sales returns: goods that came back but are not yet entered in Profit Maker.
 // Saved only in this app's own table (temp_returns). Nothing is written to Profit Maker or its backups.
@@ -106,12 +107,12 @@ function Pending({ refreshKey }) {
       .then(({ data, error }) => { if (error) setErr(error.message + ' (run migration-14.sql in Supabase)'); setRows(data || []) })
   }, [show, refreshKey, n])
   const done = async (r) => {
-    const pm = window.prompt('Profit Maker sales return number (optional):', '')
+    const pm = await askPrompt('Profit Maker sales return number (optional):', '')
     if (pm === null) return
     await supabase.from('temp_returns').update({ status: 'entered', pm_ref: pm || null, entered_at: new Date().toISOString() }).eq('id', r.id); setN(n + 1)
   }
   const undo = async (r) => { await supabase.from('temp_returns').update({ status: 'pending', pm_ref: null, entered_at: null }).eq('id', r.id); setN(n + 1) }
-  const del = async (r) => { if (window.confirm('Delete ' + r.ret_no + '?')) { await supabase.from('temp_returns').delete().eq('id', r.id); setN(n + 1) } }
+  const del = async (r) => { if (await askConfirm('Delete ' + r.ret_no + '?')) { await supabase.from('temp_returns').delete().eq('id', r.id); setN(n + 1) } }
   // One checklist of everything still to be typed into Profit Maker
   const build = () => {
     const out = [], bold = []

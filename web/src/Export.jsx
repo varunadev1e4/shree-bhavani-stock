@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { exportPdf, exportXlsx } from './exporter'
+import { showMsg } from './dialog'
 
 // build() returns { title, subtitle, columns, rows, filename, numCols, bold }
 export default function ExportBar({ build }) {
   const [busy, setBusy] = useState('')
   const run = async (kind) => {
     setBusy(kind)
-    try { const d = build(); await (kind === 'pdf' ? exportPdf(d) : exportXlsx(d.xlsx ? { ...d, ...d.xlsx } : d)) } catch (e) { alert('Could not make the file: ' + e.message) }
+    try { const d = build(); await (kind === 'pdf' ? exportPdf(d) : exportXlsx(d.xlsx ? { ...d, ...d.xlsx } : d)) } catch (e) { showMsg('Could not make the file: ' + e.message) }
     setBusy('')
   }
   return (

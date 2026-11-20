@@ -94,3 +94,10 @@ button,input,select { font:inherit; color:inherit; } button { cursor:pointer; } 
 .dates { display:flex; gap:8px; margin-top:10px; } .dates input, .fsel { flex:1; min-width:0; padding:10px 12px; border-radius:12px; border:0; background:var(--card); box-shadow:var(--shadow); font-size:14px; }
 .fgrid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px; } .fgrid select { width:100%; padding:10px 8px; border-radius:12px; border:0; background:var(--card); box-shadow:var(--shadow); font-size:13px; }
 .ver { position:fixed; right:10px; bottom:calc(76px + env(safe-area-inset-bottom)); font-size:10px; color:var(--muted); pointer-events:none; z-index:9; opacity:.7; }
+
+/* In-app dialogs (replace the browser's confirm / prompt / alert) */
+.dlg-back { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:20px; background:rgba(8,12,18,.55); backdrop-filter:blur(3px); animation:up .15s both; }
+.dlg { width:100%; max-width:360px; padding:20px; border-radius:22px; background:var(--card); color:var(--text); box-shadow:0 20px 50px rgba(0,0,0,.35); display:grid; gap:14px; }
+.dlg-msg { margin:0; font-size:16px; line-height:1.4; white-space:pre-wrap; }
+.dlg-btns { display:flex; gap:10px; justify-content:flex-end; }
+.dlg-danger { background:linear-gradient(135deg,#b91c1c,#dc2626); }

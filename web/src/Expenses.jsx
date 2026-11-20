@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { rs } from './util'
 import ExportBar from './Export'
 import MonthPick, { curYm, ymName } from './MonthPick'
+import { askConfirm } from './dialog'
 
 // Shop expenses (rent, electricity, fuel...). Saved only in this app, not connected to Profit Maker.
 const DEFAULT_CATS = ['Rent', 'Electricity', 'Fuel / transport', 'Tea / food', 'Packing', 'Repairs', 'Phone / internet', 'Fees / licence', 'Stationery', 'Other']
@@ -53,7 +54,7 @@ export default function Expenses({ back }) {
     if (error) return setErr('Could not save: ' + error.message)
     setForm(false); load()
   }
-  const del = async (r) => { if (window.confirm('Delete ' + r.category + ' ' + rs(r.amount) + '?')) { await supabase.from('expenses').delete().eq('id', r.id); load() } }
+  const del = async (r) => { if (await askConfirm('Delete ' + r.category + ' ' + rs(r.amount) + '?')) { await supabase.from('expenses').delete().eq('id', r.id); load() } }
 
   const build = () => {
     const list = [...shown].sort((a, b) => a.d.localeCompare(b.d))
