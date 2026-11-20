@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAll, num } from './util'
 import ExportBar from './Export'
+import FilterSheet, { FilterBar, Sec } from './FilterSheet'
 
 // Same layout as Profit Maker's "Company Wise Customer Product Sales": company > customer > every bill line,
 // with quantity and free kept apart, the rate, the discount %, the rate after discount (with or without GST) and totals.
@@ -23,6 +24,7 @@ export default function FullReport() {
   const [withGst, setWithGst] = useState(false)
   const [rows, setRows] = useState(null)
   const [limit, setLimit] = useState(200)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     let stale = false
@@ -78,15 +80,29 @@ export default function FullReport() {
   }
   let shown = 0
 
+  const nFilters = (company ? 1 : 0) + (text.trim() ? 1 : 0)
+  const presetName = (PRESETS.find((x) => x[0] === preset) || [])[1]
+  const summary = [preset === 'custom' ? dmy(from) + ' to ' + dmy(to) : presetName, company || null, text.trim() ? '"' + text.trim() + '"' : null, withGst ? 'with GST' : 'without GST'].filter(Boolean).join(' | ')
+  const reset = () => { setPreset('month'); setDates(range('month')); setCompany(''); setText(''); setWithGst(false) }
+
   return (
     <>
-      <div className="qchips">{PRESETS.map(([k, l]) => <button key={k} className={'qc' + (preset === k ? ' on' : '')} onClick={() => pick(k)}>{l}</button>)}</div>
-      {preset === 'custom' && <div className="dates"><input type="date" value={from} max={to} onChange={(e) => setDates([e.target.value, to])} /><input type="date" value={to} min={from} onChange={(e) => setDates([from, e.target.value])} /></div>}
-      <div className="fgrid" style={{ gridTemplateColumns: '1fr 1fr', marginTop: 10 }}>
-        <select value={company} onChange={(e) => setCompany(e.target.value)}><option value="">All companies</option>{companies.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-        <input className="fsel" type="search" placeholder="Filter by customer or product..." value={text} onChange={(e) => setText(e.target.value)} />
-      </div>
-      <div className="filters"><button className={'toggle' + (withGst ? ' on' : '')} onClick={() => setWithGst(!withGst)}>{withGst ? 'With GST' : 'Without GST'}</button></div>
+      <FilterBar summary={summary} count={nFilters} onOpen={() => setOpen(true)} />
+      <FilterSheet open={open} onClose={() => setOpen(false)} onReset={reset} title="Report filters">
+        <Sec title="Period">
+          <div className="qchips">{PRESETS.map(([k, l]) => <button key={k} className={'qc' + (preset === k ? ' on' : '')} onClick={() => pick(k)}>{l}</button>)}</div>
+          {preset === 'custom' && <div className="dates"><input type="date" value={from} max={to} onChange={(e) => setDates([e.target.value, to])} /><input type="date" value={to} min={from} onChange={(e) => setDates([from, e.target.value])} /></div>}
+        </Sec>
+        <Sec title="Narrow down">
+          <div className="fgrid" style={{ gridTemplateColumns: '1fr' }}>
+            <select value={company} onChange={(e) => setCompany(e.target.value)}><option value="">All companies</option>{companies.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+            <input className="fsel" type="search" placeholder="Filter by customer or product..." value={text} onChange={(e) => setText(e.target.value)} />
+          </div>
+        </Sec>
+        <Sec title="Show values">
+          <div className="seg" style={{ width: 'fit-content' }}>{[[false, 'Without GST'], [true, 'With GST']].map(([k, l]) => <button key={l} className={withGst === k ? 'on' : ''} onClick={() => setWithGst(k)}>{l}</button>)}</div>
+        </Sec>
+      </FilterSheet>
       {!rows && <p className="muted pad">Loading...</p>}
       {rows && !data.list.length && <div className="empty"><b>No sales for these dates</b><span>For an earlier year, load it once with history.ps1.</span></div>}
       {rows && data.list.length > 0 && (

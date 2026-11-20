@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, num } from './util'
 import ExportBar from './Export'
 import FullReport from './FullReport'
+import FilterSheet, { FilterBar, Sec } from './FilterSheet'
 
 const DIMS = { company: 'Company', party: 'Customer', product: 'Product', city: 'City', month: 'Month', day: 'Day', bill: 'Bill' }
 const QUICK = [['Customer-wise', ['party']], ['Company-wise', ['company']], ['Product-wise', ['product']], ['Company, then customer', ['company', 'party']], ['Customer, then company', ['party', 'company']], ['Company, then product', ['company', 'product']], ['City, then customer', ['city', 'party']], ['Day-wise', ['day']], ['Month-wise', ['month']]]
@@ -42,6 +43,7 @@ function flatten(node, dims, depth = 0, out = [], prefix = []) {
 
 export default function Reports() {
   const [mode, setMode] = useState('sum')
+  const [open, setOpen] = useState(false)
   const [kind, setKind] = useState('S')
   const [preset, setPreset] = useState('month')
   const [[from, to], setDates] = useState(range('month'))
@@ -93,29 +95,45 @@ export default function Reports() {
   }
   const setDim = (i, v) => setDims((d) => { const n = [...d]; if (v) n[i] = v; else n.splice(i); return n.filter((x, j) => n.indexOf(x) === j) })
 
-  const modeSeg = <div className="seg" style={{ width: 'fit-content', marginBottom: 10 }}>{[['sum', 'Summary'], ['full', 'Full lines (Profit Maker style)']].map(([k, l]) => <button key={k} className={mode === k ? 'on' : ''} onClick={() => setMode(k)}>{l}</button>)}</div>
+  const modeSeg = <div className="seg" style={{ width: 'fit-content', marginBottom: 10 }}>{[['sum', 'Summary'], ['full', 'Full lines']].map(([k, l]) => <button key={k} className={mode === k ? 'on' : ''} onClick={() => setMode(k)}>{l}</button>)}</div>
   if (mode === 'full') return <>{modeSeg}<FullReport /></>
+
+  const nFilters = (company ? 1 : 0) + (text.trim() ? 1 : 0) + (terms !== 'all' ? 1 : 0)
+  const presetName = (PRESETS.find((x) => x[0] === preset) || [])[1]
+  const summary = [preset === 'custom' ? fmtDay(from) + ' to ' + fmtDay(to) : presetName, dimNames.length ? 'by ' + dimNames.join(' > ') : null, company || null, text.trim() ? '"' + text.trim() + '"' : null,
+    exGst ? 'before GST' : 'with GST', kind === 'S' && terms === '1' ? 'credit only' : kind === 'S' && terms === '0' ? 'cash only' : null].filter(Boolean).join(' | ')
+  const reset = () => { setPreset('month'); setDates(range('month')); setCompany(''); setText(''); setTerms('all'); setExGst(false) }
 
   return (
     <>
-      {modeSeg}
-      <div className="seg" style={{ width: 'fit-content' }}>{[['S', 'Sales'], ['P', 'Purchases']].map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{l}</button>)}</div>
-      <div className="qchips">{PRESETS.map(([k, l]) => <button key={k} className={'qc' + (preset === k ? ' on' : '')} onClick={() => pick(k)}>{l}</button>)}</div>
-      {preset === 'custom' && <div className="dates"><input type="date" value={from} max={to} onChange={(e) => setDates([e.target.value, to])} /><input type="date" value={to} min={from} onChange={(e) => setDates([from, e.target.value])} /></div>}
-      <p className="count muted">{fmtDay(from)} to {fmtDay(to)}. Choose how to group the report:</p>
-      <div className="qchips">{QUICK.map(([l, d]) => <button key={l} className={'qc' + (dims.join() === d.join() ? ' on' : '')} onClick={() => setDims(d)}>{l}</button>)}</div>
-      <div className="fgrid">{[0, 1, 2].map((i) => (
-        <select key={i} value={dims[i] || ''} disabled={i > dims.length} onChange={(e) => setDim(i, e.target.value)}>
-          <option value="">{i === 0 ? 'Group by...' : 'Then by...'}</option>{Object.entries(DIMS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>))}</div>
-      <div className="fgrid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <select value={company} onChange={(e) => setCompany(e.target.value)}><option value="">All companies</option>{companies.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-        <input className="fsel" type="search" placeholder="Filter by name..." value={text} onChange={(e) => setText(e.target.value)} />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {modeSeg}
+        <div className="seg" style={{ marginBottom: 10 }}>{[['S', 'Sales'], ['P', 'Purchases']].map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{l}</button>)}</div>
       </div>
-      <div className="filters">
-        <button className={'toggle' + (exGst ? ' on' : '')} onClick={() => setExGst(!exGst)}>Before GST</button>
-        {kind === 'S' && <select value={terms} onChange={(e) => setTerms(e.target.value)}><option value="all">Cash + credit</option><option value="1">Credit only</option><option value="0">Cash only</option></select>}
-      </div>
+      <FilterBar summary={summary} count={nFilters} onOpen={() => setOpen(true)} />
+      <FilterSheet open={open} onClose={() => setOpen(false)} onReset={reset} title="Report filters">
+        <Sec title="Period">
+          <div className="qchips">{PRESETS.map(([k, l]) => <button key={k} className={'qc' + (preset === k ? ' on' : '')} onClick={() => pick(k)}>{l}</button>)}</div>
+          {preset === 'custom' && <div className="dates"><input type="date" value={from} max={to} onChange={(e) => setDates([e.target.value, to])} /><input type="date" value={to} min={from} onChange={(e) => setDates([from, e.target.value])} /></div>}
+        </Sec>
+        <Sec title="Group the report by">
+          <div className="qchips">{QUICK.map(([l, d]) => <button key={l} className={'qc' + (dims.join() === d.join() ? ' on' : '')} onClick={() => setDims(d)}>{l}</button>)}</div>
+          <div className="fgrid">{[0, 1, 2].map((i) => (
+            <select key={i} value={dims[i] || ''} disabled={i > dims.length} onChange={(e) => setDim(i, e.target.value)}>
+              <option value="">{i === 0 ? 'Group by...' : 'Then by...'}</option>{Object.entries(DIMS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>))}</div>
+        </Sec>
+        <Sec title="Narrow down">
+          <div className="fgrid" style={{ gridTemplateColumns: '1fr' }}>
+            <select value={company} onChange={(e) => setCompany(e.target.value)}><option value="">All companies</option>{companies.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+            <input className="fsel" type="search" placeholder="Filter by name..." value={text} onChange={(e) => setText(e.target.value)} />
+            {kind === 'S' && <select value={terms} onChange={(e) => setTerms(e.target.value)}><option value="all">Cash + credit</option><option value="1">Credit only</option><option value="0">Cash only</option></select>}
+          </div>
+        </Sec>
+        <Sec title="Show values">
+          <div className="seg" style={{ width: 'fit-content' }}>{[[false, 'With GST'], [true, 'Before GST']].map(([k, l]) => <button key={l} className={exGst === k ? 'on' : ''} onClick={() => setExGst(k)}>{l}</button>)}</div>
+        </Sec>
+      </FilterSheet>
 
       {!rows && <p className="muted pad">Loading...</p>}
       {rows && !filtered.length && <div className="empty"><b>No data for these dates</b><span>For an earlier year, load it once with history.ps1.</span></div>}
