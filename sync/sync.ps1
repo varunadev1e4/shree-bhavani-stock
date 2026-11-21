@@ -89,11 +89,11 @@ try {
     RndId = "id"; Name = "name"; ShortName = "short_name"; Deleted = "deleted" }) $syncId
   $products = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], Packing, Mrp, SaleGst, ComId, Deleted, RackNo, OrdLevel, LSaleDate, CostPrice, LPurRcvdDate FROM Product") ([ordered]@{
     RndId = "id"; Code = "code"; Name = "name"; Packing = "packing"; Mrp = "mrp"; SaleGst = "gst"; ComId = "company_id"; Deleted = "deleted"; RackNo = "rack_no"; OrdLevel = "ord_level"; LSaleDate = "last_sale"; CostPrice = "cost_price"; LPurRcvdDate = "last_purchase" }) $syncId
-  $batches = Map-Rows (Get-Rows "SELECT RndId, ProdId, BatchNo, ExpMonth, ExpYear, Qty, Mrp, BillPrice, CostPrice FROM Batch WHERE Qty > 0") ([ordered]@{
-    RndId = "id"; ProdId = "product_id"; BatchNo = "batch_no"; ExpMonth = "exp_month"; ExpYear = "exp_year"; Qty = "qty"; Mrp = "mrp"; BillPrice = "bill_price"; CostPrice = "cost_price" }) $syncId
+  $batches = Map-Rows (Get-Rows "SELECT RndId, ProdId, BatchNo, ExpMonth, ExpYear, Qty, Mrp, BillPrice, CostPrice, SupName, PurInvNo, PurDate FROM Batch WHERE Qty > 0") ([ordered]@{
+    RndId = "id"; ProdId = "product_id"; BatchNo = "batch_no"; ExpMonth = "exp_month"; ExpYear = "exp_year"; Qty = "qty"; Mrp = "mrp"; BillPrice = "bill_price"; CostPrice = "cost_price"; SupName = "supplier"; PurInvNo = "pur_inv"; PurDate = "pur_date" }) $syncId
 
-  $parties = Map-Rows (Get-Rows "SELECT RndId, [Code], [Name], City, Cell, Phone, OpBal, SubGroupId, Deleted FROM Accounts WHERE SubGroupId IN (2,3)") ([ordered]@{
-    RndId = "id"; Code = "code"; Name = "name"; City = "city"; Cell = "phone"; Phone = "phone2"; OpBal = "cur_bal"; SubGroupId = "group_id"; Deleted = "deleted" }) $syncId
+  $parties = Map-Rows (Get-Rows "SELECT a.RndId AS RndId, a.[Code] AS [Code], a.[Name] AS [Name], a.City AS City, a.Cell AS Cell, a.Phone AS Phone, a.OpBal AS OpBal, a.SubGroupId AS SubGroupId, a.Deleted AS Deleted, ar.[Name] AS AreaName FROM Accounts a LEFT JOIN Area ar ON a.AreaId = ar.RndId WHERE a.SubGroupId IN (2,3)") ([ordered]@{
+    RndId = "id"; Code = "code"; Name = "name"; City = "city"; Cell = "phone"; Phone = "phone2"; OpBal = "cur_bal"; SubGroupId = "group_id"; Deleted = "deleted"; AreaName = "area" }) $syncId
   # Dues are worked out bill by bill, the same way Profit Maker's Receivables and Payables reports do:
   # every CREDIT bill (payment terms = credit) with a balance left. Cash bills are left out.
   $recvMap = @{}; $payMap = @{}; $ageMap = @{}; $today = (Get-Date).Date

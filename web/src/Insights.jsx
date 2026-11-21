@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchAll, rs, num, fmtExp, expState, waLink, L, addYm, SHOP } from './util'
 import Trends from './Trends'
+import FreeGoods from './FreeGoods'
+import LastRate from './LastRate'
+import BestSupplier from './BestSupplier'
+import Areas from './Areas'
+import Profit from './Profit'
 import Analysis from './Analysis'
 import ExportBar from './Export'
 import Reports from './Reports'
@@ -9,7 +14,7 @@ import CA from './CA'
 import PayHabits from './PayHabits'
 import CashFlow from './CashFlow'
 
-const TABS = [['overview', 'Overview'], ['stmt', 'Stock & Sales'], ['ca', 'CA & GST'], ['reports', 'Reports'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['pay', 'Pay habits'], ['cash', 'Cash flow'], ['margin', 'Margins']]
+const TABS = [['overview', 'Overview'], ['stmt', 'Stock & Sales'], ['ca', 'CA & GST'], ['reports', 'Reports'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['pay', 'Pay habits'], ['cash', 'Cash flow'], ['profit', 'Daily profit'], ['margin', 'Margins'], ['free', 'Free goods'], ['lrate', 'Last rate'], ['bsup', 'Best supplier'], ['area', 'Areas']]
 const AGE = [['0-30', '#16a34a'], ['31-60', '#d97706'], ['61-90', '#ea580c'], ['90+', '#dc2626']]
 const lc = (s) => String(s || '').toLowerCase()
 const phoneOf = (p) => p && (p.phone || p.phone2)
@@ -253,7 +258,12 @@ export default function Insights() {
         {tab === 'overdue' && <Overdue parties={parties} />}
         {tab === 'pay' && <PayHabits />}
         {tab === 'cash' && <CashFlow fys={fys} />}
+        {tab === 'profit' && <Profit fys={fys} />}
         {tab === 'margin' && <Margins fys={fys} />}
+        {tab === 'free' && <FreeGoods />}
+        {tab === 'lrate' && <LastRate parties={parties} />}
+        {tab === 'bsup' && <BestSupplier />}
+        {tab === 'area' && <Areas />}
       </div>
     </div>
   )

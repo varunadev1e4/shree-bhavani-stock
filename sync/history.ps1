@@ -154,6 +154,17 @@ try {
       gv0 = (N $r["v0"]); gv1 = (N $r["v1"]); g1 = (N $r["g1"]); gv2 = (N $r["v2"]); g2 = (N $r["g2"]); gv3 = (N $r["v3"]); g3 = (N $r["g3"]); gv4 = (N $r["v4"]); g4 = (N $r["g4"])
       sub_total = (N $r["st"]); less_disc = (N $r["sd"]); adjust = (N $r["adj"]); cr_note = (N $r["cn"]); rounding = (N $r["rnd"]); sum_gst = (N $r["sg"]); net = (N $r["net"]); inter = (IsInter $r["gin"]) })
   }
+  # Day-wise profit exactly as Profit Maker's "Date Wise Cummulative": Net.Amt and Profit added up per bill date
+  $dx = @{}
+  $sqlDX = "SELECT DateValue(m.FeedDate) AS dd, SUM(i.TaxValue) AS ex, SUM((i.Qty+IIf(IsNull(i.Free),0,i.Free))*IIf(IsNull(b.ActCostPrice),0,b.ActCostPrice)*IIf(IsNull(i.GstPer),0,i.GstPer)/(100+IIf(IsNull(i.GstPer),0,i.GstPer))) AS gin FROM (TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId WHERE m.TranType='S' GROUP BY DateValue(m.FeedDate)"
+  foreach ($r in (Rows $sqlDX).Rows) { if ($r["dd"] -isnot [DBNull]) { $dx[([datetime]$r["dd"]).ToString("yyyy-MM-dd")] = @{ ex = (N $r["ex"]); gin = (N $r["gin"]) } } }
+  $mrgD = New-Object System.Collections.Generic.List[object]
+  foreach ($r in (Rows "SELECT DateValue(m.FeedDate) AS dd, COUNT(*) AS n, SUM(m.NetAmt) AS net, SUM(m.Margin) AS mg FROM TranMain m WHERE m.TranType='S' GROUP BY DateValue(m.FeedDate)").Rows) {
+    if ($r["dd"] -is [DBNull]) { continue }
+    $dd = [datetime]$r["dd"]; $ym = $dd.Year * 100 + $dd.Month; if ($ym -lt $lo -or $ym -gt $hi) { continue }
+    $k = $dd.ToString("yyyy-MM-dd"); $x = $dx[$k]
+    $mrgD.Add([ordered]@{ fy = $Fy; d = $k; bills = [int]$r["n"]; net = (N $r["net"]); margin = (N $r["mg"]); sales_ex = $(if ($x) { $x.ex } else { 0 }); gst_in = $(if ($x) { $x.gin } else { 0 }) })
+  }
   Write-Host ("{0}: {1} monthly rows, {2} product rows, {3} party rows, {4} bill lines" -f $Fy, $monthly.Count, $prod.Count, $party.Count, $lines.Count)
   if ($monthly.Count -eq 0) { throw "No transactions found for $Fy (check the file)" }
 
@@ -173,7 +184,7 @@ try {
   Replace-Table "hsn_monthly" $hsn
   Replace-Table "ledger_entries" $led
   Replace-Table "party_opening" $opening
-  foreach ($t in @(@("fy_margin_monthly", $mrg), @("bill_payments", $pays), @("bill_heads", $heads))) {
+  foreach ($t in @(@("fy_margin_monthly", $mrg), @("bill_payments", $pays), @("bill_heads", $heads), @("fy_margin_daily", $mrgD))) {
     try { Replace-Table $t[0] $t[1] } catch { Write-Host ("Skipped " + $t[0] + " (run its migration in Supabase first): " + $_.Exception.Message) -ForegroundColor Yellow }
   }
   Write-Host "History uploaded for $Fy"
