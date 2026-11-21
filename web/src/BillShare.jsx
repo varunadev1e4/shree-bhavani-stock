@@ -22,7 +22,7 @@ function Detail({ g, onBack }) {
   return (
     <div>
       {onBack && <button className="ghost sm" onClick={onBack}>All matching bills</button>}
-      <h2 className="h2" style={{ margin: '10px 0 2px' }}>Bill {(ex && ex.hd && ex.hd.inv_no) || g.bill_no} <span className="muted small">{dmy(g.d)}</span></h2>
+      <h2 className="h2" style={{ margin: '10px 0 2px' }}>Bill {g.bill_no} <span className="muted small">{dmy(g.d)}</span></h2>
       <div className="muted small">{g.party}{g.city ? ' | ' + g.city : ''}</div>
       <div className="minis" style={{ marginTop: 10 }}>
         <div className="mini"><span>Items</span><b>{g.lines.length}</b></div>
@@ -32,7 +32,7 @@ function Detail({ g, onBack }) {
       {err && <p className="error">{err}</p>}
       <div className="btnrow">
         <button className="primary" style={{ flex: 1 }} disabled={!pdf} onClick={() => deliver(pdf.blob, pdf.filename, 'Bill ' + g.bill_no)}>{pdf ? 'Share bill PDF' : 'Preparing PDF...'}</button>
-        {ph && <a className="ghost" target="_blank" rel="noreferrer" href={waLink(ph, 'Dear ' + g.party + ', your bill ' + ((ex && ex.hd && ex.hd.inv_no) || g.bill_no) + ' dated ' + dmy(g.d) + ' for ' + rs(net) + ' from ' + SHOP + '. Thank you.')}>WhatsApp text</a>}
+        {ph && <a className="ghost" target="_blank" rel="noreferrer" href={waLink(ph, 'Dear ' + g.party + ', your bill ' + g.bill_no + ' dated ' + dmy(g.d) + ' for ' + rs(net) + ' from ' + SHOP + '. Thank you.')}>WhatsApp text</a>}
       </div>
       <div className="chartcard" style={{ padding: 0, overflowX: 'auto' }}>
         <table className="rtable">

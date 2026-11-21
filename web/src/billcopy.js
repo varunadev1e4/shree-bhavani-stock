@@ -107,7 +107,7 @@ export async function billBlob(g, hd) {
   if (p.gstin) doc.text('GSTIN : ' + p.gstin, 300, 133)
   const dls = [p.dl1, p.dl2].filter(Boolean)
   dls.forEach((x, i) => doc.text((i === 0 ? 'DL No : ' : '      : ') + x, 300, 157 + i * 12))
-  doc.text('InvNo : ' + ((hd && hd.inv_no) || g.bill_no), R, 133, { align: 'right' })
+  doc.text('InvNo : ' + g.bill_no, R, 133, { align: 'right' })
   doc.text('InvDate : ' + dm(g.d), R, 145, { align: 'right' })
   doc.text('Type : ' + ((hd && hd.typ) || ''), R, 157, { align: 'right' })
   hr(Math.max(yEnd, 170) + 10)
@@ -119,7 +119,7 @@ export async function billBlob(g, hd) {
     styles: { font: 'courier', fontSize: 7.5, cellPadding: { top: 2, bottom: 2, left: 2, right: 2 }, overflow: 'linebreak' },
     headStyles: { fontStyle: 'bold', lineWidth: { top: 0.6, bottom: 0.6 }, lineColor: [60, 60, 60] },
     margin: { left: L, right: 28, bottom: 230 },
-    columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 26 }, 2: { cellWidth: 118 }, 3: { cellWidth: 30 }, 4: { cellWidth: 62 }, 5: { cellWidth: 30 }, 6: { halign: 'right', cellWidth: 26 }, 7: { halign: 'right', cellWidth: 26 }, 8: { halign: 'right', cellWidth: 42 }, 9: { halign: 'right', cellWidth: 46 }, 10: { halign: 'right', cellWidth: 42 }, 11: { halign: 'right', cellWidth: 18 }, 12: { halign: 'right', cellWidth: 22 } },
+    columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 44 }, 2: { cellWidth: 100 }, 3: { cellWidth: 30 }, 4: { cellWidth: 62 }, 5: { cellWidth: 30 }, 6: { halign: 'right', cellWidth: 26 }, 7: { halign: 'right', cellWidth: 26 }, 8: { halign: 'right', cellWidth: 42 }, 9: { halign: 'right', cellWidth: 46 }, 10: { halign: 'right', cellWidth: 42 }, 11: { halign: 'right', cellWidth: 18 }, 12: { halign: 'right', cellWidth: 22 } },
     didParseCell: (d) => { if (d.section === 'head' && d.column.index >= 6) d.cell.styles.halign = 'right' },
   })
   let by = doc.lastAutoTable.finalY + 14
@@ -144,5 +144,5 @@ export async function billBlob(g, hd) {
   hr(ny + 44)
   F('normal', 8); doc.text(SHOP_INFO.note, L, ny + 60)
   doc.text('E.&O.E          Subject To ' + SHOP_INFO.juris + '     Jurisdiction', L, ny + 82); doc.text('For ' + SHOP, R, ny + 82, { align: 'right' })
-  return { blob: doc.output('blob'), filename: ('Bill-' + ((hd && hd.inv_no) || g.bill_no) + '-' + g.d).replace(/[^\w-]+/g, '-') + '.pdf', net }
+  return { blob: doc.output('blob'), filename: ('Bill-' + g.bill_no + '-' + g.d).replace(/[^\w-]+/g, '-') + '.pdf', net }
 }
