@@ -73,3 +73,28 @@
 2026-11-20 19:45:16    pending_bills: 667 rows
 2026-11-20 19:45:16    daily_summary: 238 rows
 2026-11-20 19:45:17  Golden backup saved: C:\Users\ACER\OneDrive\Desktop\stock data\shree-bhavani-stock\sync\golden\SBMA-golden-20261120-1945.zip (1.15 MB)
+2026-11-21 19:45:03    companies: 60 rows
+2026-11-21 19:45:03    products: 613 rows
+2026-11-21 19:45:04    batches: 671 rows
+2026-11-21 19:45:04    parties: 261 rows
+2026-11-21 19:45:04    employees: 5 rows
+2026-11-21 19:45:04    emp_entries: 3 rows
+2026-11-21 19:45:04    expenses: 3 rows
+2026-11-21 19:45:04    directory: 1 rows
+2026-11-21 19:45:05    directory_people: 0 rows
+2026-11-21 19:45:05    temp_bills: 0 rows
+2026-11-21 19:45:05    temp_returns: 0 rows
+2026-11-21 19:45:05    temp_collections: 0 rows
+2026-11-21 19:45:05    fy_monthly: 89 rows
+2026-11-21 19:45:06    fy_product_monthly: 4450 rows
+2026-11-21 19:45:06    fy_party_monthly: 1310 rows
+2026-11-21 19:45:11    sales_lines: 16423 rows
+2026-11-21 19:45:13    gst_bills: 6400 rows
+2026-11-21 19:45:14    hsn_monthly: 2578 rows
+2026-11-21 19:45:15    ledger_entries: 7886 rows
+2026-11-21 19:45:15    party_opening: 517 rows
+2026-11-21 19:45:15    fy_margin_monthly: 22 rows
+2026-11-21 19:45:16    bill_payments: 4903 rows
+2026-11-21 19:45:16    pending_bills: 662 rows
+2026-11-21 19:45:16    daily_summary: 238 rows
+2026-11-21 19:45:17  Golden backup saved: C:\Users\ACER\OneDrive\Desktop\stock data\shree-bhavani-stock\sync\golden\SBMA-golden-20261121-1945.zip (1.3 MB)

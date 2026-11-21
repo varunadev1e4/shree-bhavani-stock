@@ -63,7 +63,7 @@ export default function Statement({ stock }) {
       return { company: c, rows, t }
     })
     const g = list.reduce((x, c) => ({ ov: x.ov + c.t.ov, pv: x.pv + c.t.pv, sv: x.sv + c.t.sv, cv: x.cv + c.t.cv }), { ov: 0, pv: 0, sv: 0, cv: 0 })
-    return { list, g, noCost: !stock.some((s) => Number(s.cost_price) > 0) }
+    return { list, g, noCost: stock.length > 0 && !stock.some((s) => Number(s.cost_price) > 0) }
   }, [lines, stock, to, company, hideZero])
 
   const build = () => {
