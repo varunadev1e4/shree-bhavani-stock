@@ -351,7 +351,7 @@ function Shell() {
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 17</div>
+      <div className="ver">Build 18</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['insights', 'Insights']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>

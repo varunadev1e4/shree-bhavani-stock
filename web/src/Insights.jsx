@@ -14,7 +14,14 @@ import CA from './CA'
 import PayHabits from './PayHabits'
 import CashFlow from './CashFlow'
 
-const TABS = [['overview', 'Overview'], ['stmt', 'Stock & Sales'], ['ca', 'CA & GST'], ['reports', 'Reports'], ['trends', 'Trends'], ['reorder', 'Reorder'], ['slow', 'Slow stock'], ['quiet', 'Quiet buyers'], ['overdue', 'Overdue'], ['pay', 'Pay habits'], ['cash', 'Cash flow'], ['profit', 'Daily profit'], ['margin', 'Margins'], ['free', 'Free goods'], ['lrate', 'Last rate'], ['bsup', 'Best supplier'], ['area', 'Areas']]
+// Four groups, so the page is never a wall of options
+const GROUPS = [
+  ['analysis', 'Analysis', [['overview', 'Overview'], ['profit', 'Daily profit'], ['margin', 'Margins'], ['trends', 'Trends'], ['cash', 'Cash flow']]],
+  ['reports', 'Reports', [['stmt', 'Stock & Sales'], ['reports', 'Reports'], ['ca', 'CA & GST'], ['free', 'Free goods']]],
+  ['cust', 'Customers', [['overdue', 'Overdue'], ['pay', 'Pay habits'], ['quiet', 'Quiet buyers'], ['area', 'Areas'], ['lrate', 'Last rate']]],
+  ['buy', 'Stock & buying', [['reorder', 'Reorder'], ['slow', 'Slow stock'], ['bsup', 'Best supplier']]],
+]
+const saved = () => { try { return JSON.parse(localStorage.getItem('sb-insights') || '{}') } catch { return {} } }
 const AGE = [['0-30', '#16a34a'], ['31-60', '#d97706'], ['61-90', '#ea580c'], ['90+', '#dc2626']]
 const lc = (s) => String(s || '').toLowerCase()
 const phoneOf = (p) => p && (p.phone || p.phone2)
@@ -220,11 +227,16 @@ function Margins({ fys }) {
 }
 
 export default function Insights() {
-  const [tab, setTab] = useState('overview')
+  const [grp, setGrp] = useState(() => { const g = saved().g; return GROUPS.some((x) => x[0] === g) ? g : 'analysis' })
+  const [tabs, setTabs] = useState(() => saved().t || {})
+  const cur = GROUPS.find((x) => x[0] === grp)
+  const tab = cur[2].some((t) => t[0] === tabs[grp]) ? tabs[grp] : cur[2][0][0]
+  const setTab = (k) => setTabs({ ...tabs, [grp]: k })
+  useEffect(() => { try { localStorage.setItem('sb-insights', JSON.stringify({ g: grp, t: tabs })) } catch { /* ignore */ } }, [grp, tabs])
   const tref = useRef(null)
   const [edge, setEdge] = useState({ l: false, r: true })
   const chk = () => { const e = tref.current; if (e) setEdge({ l: e.scrollLeft > 8, r: e.scrollLeft + e.clientWidth < e.scrollWidth - 8 }) }
-  useEffect(() => { chk(); window.addEventListener('resize', chk); return () => window.removeEventListener('resize', chk) }, [])
+  useEffect(() => { if (tref.current) tref.current.scrollLeft = 0; chk(); window.addEventListener('resize', chk); return () => window.removeEventListener('resize', chk) }, [grp])
   const go = (d) => { const e = tref.current; if (e) e.scrollBy({ left: d * 200, behavior: 'smooth' }) }
   const [stock, setStock] = useState([])
   const [parties, setParties] = useState([])
@@ -241,9 +253,10 @@ export default function Insights() {
   return (
     <div className="app">
       <header className="top"><h1 className="h1">Insights</h1></header>
+      <div className="igroups">{GROUPS.map(([k, l]) => <button key={k} className={grp === k ? 'on' : ''} onClick={() => setGrp(k)}>{l}</button>)}</div>
       <div className="tabscroll">
         {edge.l && <button className="tarrow l" aria-label="Scroll left" onClick={() => go(-1)}>‹</button>}
-        <div className="qchips" ref={tref} onScroll={chk}>{TABS.map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}</div>
+        <div className="qchips" ref={tref} onScroll={chk}>{cur[2].map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}</div>
         {edge.r && <button className="tarrow r" aria-label="Scroll right" onClick={() => go(1)}>›</button>}
       </div>
       <div style={{ marginTop: 12 }}>

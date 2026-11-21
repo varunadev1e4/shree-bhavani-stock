@@ -120,3 +120,8 @@ button,input,select { font:inherit; color:inherit; } button { cursor:pointer; } 
 .tarrow { position:absolute; top:50%; transform:translateY(-50%); margin-top:5px; width:34px; height:34px; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--accent); font-size:24px; line-height:1; font-weight:700; box-shadow:var(--shadow); z-index:2; padding:0 0 3px; }
 .tarrow.r { right:0; animation:nudge 1.2s ease-in-out infinite; } .tarrow.l { left:0; }
 @keyframes nudge { 0%,100% { transform:translateY(-50%) translateX(0); } 50% { transform:translateY(-50%) translateX(-4px); } }
+
+
+.igroups { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:4px; border-radius:16px; background:var(--line); margin-top:10px; }
+.igroups button { border:0; background:none; padding:10px 2px; border-radius:12px; font-weight:700; font-size:13px; line-height:1.2; color:var(--muted); }
+.igroups button.on { background:var(--card); color:var(--accent); box-shadow:var(--shadow); }
