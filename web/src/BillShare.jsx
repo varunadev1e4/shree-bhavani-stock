@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { findBills, billExtra, billBlob, totals } from './billcopy'
+import { useEffect, useRef, useState } from 'react'
+import { findBills, billExtra, billBlob, totals, recentBills } from './billcopy'
 import { deliver } from './exporter'
 import { rs, num, waLink, SHOP } from './util'
 
@@ -21,7 +21,7 @@ function Detail({ g, onBack }) {
   const ph = ex && ex.pty && (ex.pty.phone || ex.pty.phone2)
   return (
     <div>
-      {onBack && <button className="ghost sm" onClick={onBack}>All matching bills</button>}
+      {onBack && <button className="ghost sm" onClick={onBack}>Back to list</button>}
       <h2 className="h2" style={{ margin: '10px 0 2px' }}>Bill {g.bill_no} <span className="muted small">{dmy(g.d)}</span></h2>
       <div className="muted small">{g.party}{g.city ? ' | ' + g.city : ''}</div>
       <div className="minis" style={{ marginTop: 10 }}>
@@ -41,6 +41,64 @@ function Detail({ g, onBack }) {
         </table>
       </div>
       <p className="muted small">The PDF follows Profit Maker's GST INVOICE layout, built from the data synced from it. Tap Share and choose the customer in WhatsApp.</p>
+    </div>
+  )
+}
+
+
+const dayName = (s) => { const t = new Date(); const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); const y = new Date(t); y.setDate(t.getDate() - 1); return s === iso(t) ? 'Today' : s === iso(y) ? 'Yesterday' : dmy(s) }
+const sinceIso = (n) => { const t = new Date(); t.setDate(t.getDate() - n + 1); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0') }
+const DAYS = [[1, 'Today'], [7, 'Last 7 days'], [30, 'Last 30 days']]
+
+// Newest bills first, each with its own Share PDF button
+function RecentBills({ onOpen }) {
+  const [days, setDays] = useState(7)
+  const [rows, setRows] = useState(null)
+  const [state, setState] = useState({})
+  const cache = useRef(new Map())
+  useEffect(() => {
+    let stale = false
+    setRows(null)
+    recentBills(sinceIso(days)).then((d) => { if (!stale) setRows(d) }).catch(() => { if (!stale) setRows([]) })
+    return () => { stale = true }
+  }, [days])
+  const set = (k, v) => setState((s) => ({ ...s, [k]: v }))
+  const share = async (g) => {
+    const k = g.key
+    let p = cache.current.get(k)
+    if (!p) {
+      set(k, 'busy')
+      try { const e = await billExtra(g); p = await billBlob(g, e.hd); cache.current.set(k, p) } catch (e) { set(k, 'error'); return }
+      // the phone only allows sharing right after a tap; if building took too long, ask for one more tap
+      if (navigator.userActivation && !navigator.userActivation.isActive) { set(k, 'ready'); return }
+    }
+    set(k, '')
+    await deliver(p.blob, p.filename, 'Bill ' + g.bill_no)
+  }
+  const byDay = []
+  ;(rows || []).forEach((g) => { const l = byDay[byDay.length - 1]; if (l && l.d === g.d) l.list.push(g); else byDay.push({ d: g.d, list: [g] }) })
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="qchips">{DAYS.map(([k, l]) => <button key={k} className={'qc' + (days === k ? ' on' : '')} onClick={() => setDays(k)}>{l}</button>)}</div>
+      {!rows && <p className="muted pad">Loading bills...</p>}
+      {rows && !rows.length && <div className="empty"><b>No sales bills in this period</b><span>Bills appear after the sync.</span></div>}
+      {byDay.map((day) => (
+        <div key={day.d} style={{ marginTop: 10 }}>
+          <div className="muted small" style={{ fontWeight: 700, padding: '0 2px 4px' }}>{dayName(day.d)} | {day.list.length} bill{day.list.length > 1 ? 's' : ''} | {rs(day.list.reduce((s, g) => s + g.net, 0))}</div>
+          <ul className="list">
+            {day.list.map((g) => {
+              const st = state[g.key]
+              return (
+                <li key={g.key} className="card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button className="row" style={{ flex: 1, minWidth: 0 }} onClick={() => onOpen(g)}>
+                    <div className="info"><div className="name">{g.party}</div><div className="meta"><span>Bill {g.bill_no}</span>{g.typ && <span>{g.typ}</span>}{g.city && <span>{g.city}</span>}</div></div>
+                    <div className="amt">{rs(g.net)}</div>
+                  </button>
+                  <button className={st === 'ready' ? 'primary sm' : 'ghost sm'} style={{ margin: 0, flex: 'none' }} disabled={st === 'busy'} onClick={() => share(g)}>{st === 'busy' ? 'Preparing...' : st === 'ready' ? 'Tap to share' : st === 'error' ? 'Retry' : 'Share PDF'}</button>
+                </li>)
+            })}
+          </ul>
+        </div>))}
     </div>
   )
 }
@@ -76,7 +134,8 @@ export function BillPanel({ no, date, party, auto }) {
               <div className="amt">{rs(g.total)}</div></button></li>))}</ul>
         </div>
       )}
-      {pick && <div style={{ marginTop: 12 }}><Detail g={pick} onBack={groups && groups.length > 1 ? () => setPick(null) : null} /></div>}
+      {pick && <div style={{ marginTop: 12 }}><Detail g={pick} onBack={auto ? (groups && groups.length > 1 ? () => setPick(null) : null) : () => setPick(null)} /></div>}
+      {!auto && !pick && !busy && !(groups && groups.length > 1) && <RecentBills onOpen={(g) => setPick(g)} />}
     </div>
   )
 }

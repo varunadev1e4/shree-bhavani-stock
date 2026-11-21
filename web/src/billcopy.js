@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { SHOP, GSTIN } from './util'
+import { SHOP, GSTIN, fetchAll } from './util'
 import { inWords } from './exporter'
 
 // Bill copy laid out like Profit Maker's GST INVOICE, built from synced data (sales_lines + bill_heads). Read only.
@@ -145,4 +145,19 @@ export async function billBlob(g, hd) {
   F('normal', 8); doc.text(SHOP_INFO.note, L, ny + 60)
   doc.text('E.&O.E          Subject To ' + SHOP_INFO.juris + '     Jurisdiction', L, ny + 82); doc.text('For ' + SHOP, R, ny + 82, { align: 'right' })
   return { blob: doc.output('blob'), filename: ('Bill-' + g.bill_no + '-' + g.d).replace(/[^\w-]+/g, '-') + '.pdf', net }
+}
+
+// Recent sales bills (newest first) with the printed net amount, for the quick list.
+export async function recentBills(from) {
+  let rows
+  try { rows = await fetchAll('sales_lines', COLS, (q) => q.eq('kind', 'S').gte('d', from), 'recent:' + from) }
+  catch (e) { rows = await fetchAll('sales_lines', COLS_OLD, (q) => q.eq('kind', 'S').gte('d', from), 'recent0:' + from) }
+  const g = group(rows)
+  try {
+    const hs = await fetchAll('bill_heads', 'fy,feed_no,d,net,typ', (q) => q.gte('d', from), 'recent-h:' + from)
+    const m = new Map(hs.map((h) => [h.fy + '|' + h.feed_no + '|' + h.d, h]))
+    g.forEach((x) => { const h = m.get(x.fy + '|' + x.bill_no + '|' + x.d); if (h) { x.net = Number(h.net); x.typ = h.typ } })
+  } catch (e) { /* older database without bill_heads */ }
+  g.forEach((x) => { if (x.net == null) x.net = Math.round(x.total) })
+  return g.sort((a, b) => b.d.localeCompare(a.d) || b.bill_no.localeCompare(a.bill_no, 'en', { numeric: true }))
 }
