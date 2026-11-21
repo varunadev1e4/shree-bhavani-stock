@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { fetchAll, rs } from './util'
 import ExportBar from './Export'
+import { BillBtn } from './BillShare'
 import { askConfirm, askPrompt, showMsg } from './dialog'
 import { receiptBlob, deliver } from './exporter'
 
@@ -132,7 +133,7 @@ function NewCollection({ onSaved }) {
             <tbody>
               {bills.map((b) => (
                 <tr key={b.id}>
-                  <td style={{ textAlign: 'left', whiteSpace: 'normal' }}><b>{b.bill_no}</b> <span className="muted small">{dmy(String(b.bill_date).slice(0, 10))}</span>
+                  <td style={{ textAlign: 'left', whiteSpace: 'normal' }}><b>{b.bill_no}</b> <span className="muted small">{dmy(String(b.bill_date).slice(0, 10))}</span> <BillBtn no={b.bill_no} date={b.bill_date} party={party.name} />
                     {b.held > 0 && <div className="muted small">{rs(b.held)} already collected here, not yet in Profit Maker</div>}</td>
                   <td>{rs(b.bal)}<div><button className="qc" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => setBill(b.id, String(b.bal))}>Full</button></div></td>
                   <td><input className="fsel" style={{ width: 92, boxSizing: 'border-box', textAlign: 'right', padding: '8px 8px' }} type="number" inputMode="decimal" placeholder="0" value={alloc[b.id] || ''} onChange={(e) => setBill(b.id, e.target.value)} /></td>

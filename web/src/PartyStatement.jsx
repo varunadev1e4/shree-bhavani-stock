@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAll, rs, SHOP } from './util'
 import { exportPdf } from './exporter'
+import { BillBtn } from './BillShare'
 import { statement, KIND_TEXT } from './ledger'
 
 // Party statement: every bill and payment between two dates with a running balance.
@@ -71,7 +72,7 @@ export default function PartyStatement({ p, side, current, initFrom, initTo, onC
               <tbody>
                 <tr className="g"><td colSpan={4} style={{ textAlign: 'left' }}>Opening balance</td><td>{money(st.open)}</td></tr>
                 {st.rows.map((r, i) => (
-                  <tr key={i}><td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{dmy(r.d).slice(0, 5)}</td><td style={{ textAlign: 'left', whiteSpace: 'normal' }}>{r.vno} <span className="muted small">{text(r)}</span></td>
+                  <tr key={i}><td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{dmy(r.d).slice(0, 5)}</td><td style={{ textAlign: 'left', whiteSpace: 'normal' }}>{r.vno} <span className="muted small">{text(r)}</span>{recv && r.bill ? <div><BillBtn no={r.vno} date={r.d} party={p.name} /></div> : null}</td>
                     <td>{r.bill ? money(r.bill) : ''}</td><td>{r.paid ? money(r.paid) : ''}</td><td>{money(r.bal)}</td></tr>))}
                 <tr className="t"><td colSpan={2} style={{ textAlign: 'left' }}>Closing</td><td>{money(st.billed)}</td><td>{money(st.paid)}</td><td>{money(st.closing)}</td></tr>
               </tbody>

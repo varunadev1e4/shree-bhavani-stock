@@ -3,6 +3,7 @@ import { fetchAll, rs, waLink, SHOP } from './util'
 import Customer from './Customer'
 import PartyStatement from './PartyStatement'
 import Directory from './Directory'
+import { BillBtn } from './BillShare'
 import ExportBar from './Export'
 import { exportPdf } from './exporter'
 
@@ -151,7 +152,7 @@ export default function Parties({ side: sideProp }) {
                     <table>
                       <thead><tr><th>Bill</th><th>Date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Days</th></tr></thead>
                       <tbody>{bl.map((b) => (
-                        <tr key={b.id}><td>{label(b)}</td><td>{fmtD(b.bill_date)}</td><td>{Number(b.total).toLocaleString('en-IN')}</td><td>{Number(b.paid).toLocaleString('en-IN')}</td><td><b>{Number(b.balance).toLocaleString('en-IN')}</b></td><td>{dayAge(b.bill_date)}</td></tr>
+                        <tr key={b.id}><td>{label(b)}{side === 'recv' && <div><BillBtn no={b.bill_no} date={b.bill_date} party={p.name} /></div>}</td><td>{fmtD(b.bill_date)}</td><td>{Number(b.total).toLocaleString('en-IN')}</td><td>{Number(b.paid).toLocaleString('en-IN')}</td><td><b>{Number(b.balance).toLocaleString('en-IN')}</b></td><td>{dayAge(b.bill_date)}</td></tr>
                       ))}</tbody>
                     </table>
                   ) : amt > 0.5 ? <p className="muted small">Bill details appear after the next sync.</p> : null}

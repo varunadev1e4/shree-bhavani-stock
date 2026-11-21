@@ -66,13 +66,13 @@ try {
   function S($v) { if ($v -is [DBNull]) { "" } else { ([string]$v).Trim() } }
   function N($v) { if ($v -is [DBNull]) { 0.0 } else { [Math]::Round([double]$v, 2) } }
   $lines = New-Object System.Collections.Generic.List[object]
-  $sqlL = "SELECT m.InvDate AS d, m.FeedNo AS bn, m.TranType AS tt, m.Terms AS tm, a.[Name] AS pn, a.City AS cty, p.[Name] AS prd, c.[Name] AS cmp, i.Qty AS q, i.Free AS fr, i.TaxValue AS tv, i.ProValue AS pv, i.DisPer AS dp, i.Rate AS rt, i.GstPer AS gp, p.Packing AS pk, b.BatchNo AS bno, a.[Code] AS cd FROM (((((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Accounts a ON m.AccId=a.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId) WHERE m.TranType IN ('S','P')"
+  $sqlL = "SELECT m.InvDate AS d, m.FeedNo AS bn, m.TranType AS tt, m.Terms AS tm, a.[Name] AS pn, a.City AS cty, p.[Name] AS prd, c.[Name] AS cmp, i.Qty AS q, i.Free AS fr, i.TaxValue AS tv, i.ProValue AS pv, i.DisPer AS dp, i.Rate AS rt, i.GstPer AS gp, p.Packing AS pk, b.BatchNo AS bno, a.[Code] AS cd, p.HsnCode AS hsn, b.Mrp AS mrp, b.ExpMonth AS em, b.ExpYear AS ey, c.ShortName AS msn FROM (((((TranItem i INNER JOIN TranMain m ON i.TranId=m.RndId) INNER JOIN Accounts a ON m.AccId=a.RndId) INNER JOIN Product p ON i.ProdId=p.RndId) LEFT JOIN Company c ON p.ComId=c.RndId) LEFT JOIN Batch b ON i.BatchId=b.RndId) WHERE m.TranType IN ('S','P')"
   foreach ($r in (Rows $sqlL).Rows) {
     if ($r["d"] -is [DBNull]) { continue }
     $dt = [datetime]$r["d"]; $ym = $dt.Year * 100 + $dt.Month
     if ($ym -lt $lo -or $ym -gt $hi) { continue }
     $lines.Add([ordered]@{ fy = $Fy; kind = (S $r["tt"]); d = $dt.ToString("yyyy-MM-dd"); bill_no = (S $r["bn"]); party = (S $r["pn"]); city = (S $r["cty"]); company = $(if ((S $r["cmp"]) -eq "") { "Other" } else { S $r["cmp"] }); product = (S $r["prd"])
-      qty = (N $r["q"]); free = (N $r["fr"]); gst = (N $r["gp"]); pack = (S $r["pk"]); batch = (S $r["bno"]); rate = (N $r["rt"]); dis = (N $r["dp"]); party_code = (S $r["cd"]).TrimStart('0')
+      qty = (N $r["q"]); free = (N $r["fr"]); gst = (N $r["gp"]); pack = (S $r["pk"]); batch = (S $r["bno"]); rate = (N $r["rt"]); dis = (N $r["dp"]); party_code = (S $r["cd"]).TrimStart('0'); hsn = (S $r["hsn"]); mrp = (N $r["mrp"]); exp = $(if ($r["em"] -is [DBNull] -or $r["ey"] -is [DBNull] -or [int]$r["ey"] -eq 0) { "" } else { ('{0:00}/{1:00}' -f [int]$r["em"], ([int]$r["ey"] % 100)) }); mfg = (S $r["msn"])
       # value after discount, before GST (sales: TaxValue; purchase bills keep TaxValue empty, so use rate x qty less discount)
       amount = $(if ((S $r["tt"]) -eq "P") { [Math]::Round((N $r["pv"]) * (1 - (N $r["dp"]) / 100), 2) } else { N $r["tv"] }); terms = $(if ($r["tm"] -is [DBNull]) { 1 } else { [int]$r["tm"] }) })
   }
@@ -142,6 +142,18 @@ try {
     $x = $mx[$ym]
     $mrg.Add([ordered]@{ fy = $Fy; ym = $ym; bills = [int]$r["n"]; net = (N $r["net"]); margin = (N $r["mg"]); sales_ex = $(if ($x) { $x.ex } else { 0 }); gst_in = $(if ($x) { $x.gin } else { 0 }) })
   }
+  # Bill header details (address, DL no, GST summary, adjustments) so a bill copy can look exactly like Profit Maker's invoice
+  $heads = New-Object System.Collections.Generic.List[object]
+  $sqlH = "SELECT m.FeedNo AS fn, m.InvNo AS ino, m.InvDate AS idt, m.FeedDate AS fdt, m.Terms AS tm, a.[Code] AS cd, a.[Name] AS pn, a.Add1 AS a1, a.Add2 AS a2, a.Add3 AS a3, a.Add4 AS a4, a.City AS cty, a.Pin AS pin, a.Phone AS ph, a.GstIn AS gin, a.DlNo1 AS d1, a.DlNo2 AS d2, m.GstVal0 AS v0, m.GstVal1 AS v1, m.Gst1 AS g1, m.GstVal2 AS v2, m.Gst2 AS g2, m.GstVal3 AS v3, m.Gst3 AS g3, m.GstVal4 AS v4, m.Gst4 AS g4, m.SubTotal AS st, m.SumDis AS sd, m.Adjust AS adj, m.CreditAmt AS cn, m.Rounding AS rnd, m.SumGst AS sg, m.NetAmt AS net FROM TranMain m INNER JOIN Accounts a ON m.AccId=a.RndId WHERE m.TranType='S'"
+  foreach ($r in (Rows $sqlH).Rows) {
+    $hd = if ($r["idt"] -isnot [DBNull]) { [datetime]$r["idt"] } elseif ($r["fdt"] -isnot [DBNull]) { [datetime]$r["fdt"] } else { continue }
+    $ym = $hd.Year * 100 + $hd.Month
+    if ($ym -lt $lo -or $ym -gt $hi) { continue }
+    $heads.Add([ordered]@{ fy = $Fy; feed_no = (S $r["fn"]); inv_no = (S $r["ino"]); d = $hd.ToString("yyyy-MM-dd"); typ = $(if ($r["tm"] -is [DBNull] -or [int]$r["tm"] -eq 1) { "Credit" } else { "Cash" })
+      party = (S $r["pn"]); party_code = (S $r["cd"]).TrimStart('0'); add1 = (S $r["a1"]); add2 = (S $r["a2"]); add3 = (S $r["a3"]); add4 = (S $r["a4"]); city = (S $r["cty"]); pin = (S $r["pin"]); phone = (S $r["ph"]); gstin = (S $r["gin"]); dl1 = (S $r["d1"]); dl2 = (S $r["d2"])
+      gv0 = (N $r["v0"]); gv1 = (N $r["v1"]); g1 = (N $r["g1"]); gv2 = (N $r["v2"]); g2 = (N $r["g2"]); gv3 = (N $r["v3"]); g3 = (N $r["g3"]); gv4 = (N $r["v4"]); g4 = (N $r["g4"])
+      sub_total = (N $r["st"]); less_disc = (N $r["sd"]); adjust = (N $r["adj"]); cr_note = (N $r["cn"]); rounding = (N $r["rnd"]); sum_gst = (N $r["sg"]); net = (N $r["net"]); inter = (IsInter $r["gin"]) })
+  }
   Write-Host ("{0}: {1} monthly rows, {2} product rows, {3} party rows, {4} bill lines" -f $Fy, $monthly.Count, $prod.Count, $party.Count, $lines.Count)
   if ($monthly.Count -eq 0) { throw "No transactions found for $Fy (check the file)" }
 
@@ -161,7 +173,7 @@ try {
   Replace-Table "hsn_monthly" $hsn
   Replace-Table "ledger_entries" $led
   Replace-Table "party_opening" $opening
-  foreach ($t in @(@("fy_margin_monthly", $mrg), @("bill_payments", $pays))) {
+  foreach ($t in @(@("fy_margin_monthly", $mrg), @("bill_payments", $pays), @("bill_heads", $heads))) {
     try { Replace-Table $t[0] $t[1] } catch { Write-Host ("Skipped " + $t[0] + " (run its migration in Supabase first): " + $_.Exception.Message) -ForegroundColor Yellow }
   }
   Write-Host "History uploaded for $Fy"

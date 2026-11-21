@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAll, num } from './util'
+import { BillBtn } from './BillShare'
 import ExportBar from './Export'
 import FilterSheet, { FilterBar, Sec } from './FilterSheet'
 
@@ -126,7 +127,7 @@ export default function FullReport() {
                       <thead><tr><th style={{ textAlign: 'left' }}>Inv.No</th><th>Date</th><th style={{ textAlign: 'left' }}>Product</th><th>Pack</th><th>Batch</th><th>Qty</th><th>Free</th><th>Rate</th><th>Dis%</th><th>{withGst ? 'WVRate' : 'WVORate'}</th><th>Value</th></tr></thead>
                       <tbody>
                         {x.lines.map((r, i) => (
-                          <tr key={i}><td style={{ textAlign: 'left' }}>{r.bill_no}</td><td style={{ whiteSpace: 'nowrap' }}>{dmy(r.d).slice(0, 5)}</td><td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{r.product}</td><td>{r.pack}</td><td>{r.batch}</td>
+                          <tr key={i}><td style={{ textAlign: 'left' }}>{r.bill_no} <BillBtn no={r.bill_no} date={r.d} party={r.party} label="Copy" /></td><td style={{ whiteSpace: 'nowrap' }}>{dmy(r.d).slice(0, 5)}</td><td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{r.product}</td><td>{r.pack}</td><td>{r.batch}</td>
                             <td>{num(r.qty)}</td><td>{num(r.free)}</td><td>{m2(r.rate)}</td><td>{num(r.dis)}</td><td>{m2(unit(r))}</td><td>{m2(lineVal(r))}</td></tr>))}
                         <tr className="t"><td colSpan={5} style={{ textAlign: 'left' }}>Total:</td><td>{num(x.t.q)}</td><td>{num(x.t.f)}</td><td colSpan={3}></td><td>{m2(x.t.v)}</td></tr>
                       </tbody>

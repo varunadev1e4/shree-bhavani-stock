@@ -8,6 +8,7 @@ import Staff from './Staff'
 import Expenses from './Expenses'
 import TempReturn from './TempReturn'
 import TempCollection from './TempCollection'
+import BillShare from './BillShare'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
 import { Mark } from './Logo'
 import { getTheme, setTheme, nextTheme } from './theme'
@@ -115,6 +116,7 @@ function Home({ go }) {
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('temp')}>Temporary bill</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('ret')}>Temp returns{nRet > 0 ? ' (' + nRet + ' to enter)' : ''}</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('col')}>Collections{nCol > 0 ? ' (' + nCol + ' to enter)' : ''}</button>
+        <button className="ghost" style={{ margin: 0 }} onClick={() => go('bill')}>Share a bill</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('staff')}>Staff</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('exp')}>Expenses</button>
       </div>
@@ -344,12 +346,12 @@ function Shell() {
   }, [])
   const go = (t, side) => { if (side) setPs(side); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} />, exp: <Expenses back={() => go('home')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} /> }[tab]
+  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} />, exp: <Expenses back={() => go('home')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 16</div>
+      <div className="ver">Build 17</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['insights', 'Insights']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
