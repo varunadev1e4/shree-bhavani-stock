@@ -13,7 +13,7 @@ function Detail({ g, onBack }) {
   useEffect(() => {
     let stale = false
     setPdf(null); setErr('')
-    billExtra(g).then(async (e) => { if (stale) return; setEx(e); const p = await billBlob(g, e.hd); if (!stale) setPdf(p) }).catch(() => { if (!stale) setErr('Could not build the PDF. Check your internet and try again.') })
+    billExtra(g).then(async (e) => { if (stale) return; setEx(e); const p = await billBlob(g, e.hd); if (!stale) setPdf(p) }).catch((e) => { console.error(e); if (!stale) setErr('Could not build the PDF (' + ((e && e.message) || 'unknown') + '). If the app was just updated, close it and open it again.') })
     return () => { stale = true }
   }, [g])
   const t = totals(g.lines)

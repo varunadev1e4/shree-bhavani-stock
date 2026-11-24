@@ -51,6 +51,12 @@ window.addEventListener('unhandledrejection', (e) => showError(String((e.reason 
 
 ReactDOM.createRoot(document.getElementById('root')).render(<Boundary><App /><DialogHost /></Boundary>)
 
+// After an update, a page that was already open asks for old file names that no longer exist (PDF and Excel tools load on demand).
+// Reload once to pick up the new version.
+window.addEventListener('vite:preloadError', () => {
+  try { if (sessionStorage.getItem('sb-reload')) return; sessionStorage.setItem('sb-reload', '1') } catch (e) { /* ignore */ }
+  location.reload()
+})
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
 }
