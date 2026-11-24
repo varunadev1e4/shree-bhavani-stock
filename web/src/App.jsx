@@ -76,12 +76,10 @@ function Home({ go }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
   const [spin, setSpin] = useState(false)
-  const [nRet, setNRet] = useState(0)
   const [nCol, setNCol] = useState(0)
   const [tick, setTick] = useState(0)
   const nInbox = useInboxCount(tick)
   useEffect(() => {
-    supabase.from('temp_returns').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNRet(count || 0)).catch(() => {})
     supabase.from('temp_collections').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNCol(count || 0)).catch(() => {})
   }, [])
   const [theme, setThemeState] = useState(getTheme())
@@ -124,7 +122,6 @@ function Home({ go }) {
       </section>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('temp')}>Temporary bill</button>
-        <button className="ghost" style={{ margin: 0 }} onClick={() => go('ret')}>Temp returns{nRet > 0 ? ' (' + nRet + ' to enter)' : ''}</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('col')}>Collections{nCol > 0 ? ' (' + nCol + ' to enter)' : ''}</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('bill')}>Share a bill</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('att')}>Mark attendance</button>
