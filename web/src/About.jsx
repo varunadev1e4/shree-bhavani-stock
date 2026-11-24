@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { APP, SHOP, backupAge, latestSync } from './util'
+import { nameOf } from './me'
+import { askPrompt, showMsg } from './dialog'
 import { BUILD } from './version'
 import { CHANGELOG } from './changelog'
 
@@ -9,11 +11,19 @@ const Row = ({ l, v }) => <div style={{ display: 'flex', justifyContent: 'space-
 
 export default function About({ back }) {
   const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
   const [sync, setSync] = useState(null)
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setEmail((data && data.user && data.user.email) || '')).catch(() => {})
+    supabase.auth.getUser().then(({ data }) => { setEmail((data && data.user && data.user.email) || ''); setName(nameOf(data && data.user)) }).catch(() => {})
     latestSync().then(setSync).catch(() => {})
   }, [])
+  const editName = async () => {
+    const v = await askPrompt('Your name (shown on the Home screen):', name)
+    if (v == null || !v.trim()) return
+    const { error } = await supabase.auth.updateUser({ data: { full_name: v.trim() } })
+    if (error) return showMsg('Could not save: ' + error.message)
+    setName(v.trim())
+  }
   const s = sync ? backupAge(sync).text : 'Checking...'
   return (
     <div className="app">
@@ -23,6 +33,7 @@ export default function About({ back }) {
         <p style={{ margin: '0 0 10px' }}>Developed by <b>Varun</b> for <b>{SHOP}</b>.</p>
         <Row l="Version" v={'v' + BUILD} />
         <Row l="Data" v={s} />
+        <Row l="Name" v={<>{name || '-'} <button className="ghost sm" style={{ marginLeft: 8 }} onClick={editName}>Edit</button></>} />
         <Row l="Signed in as" v={email || '-'} />
         <Row l="Access" v="Owner" />
       </div>

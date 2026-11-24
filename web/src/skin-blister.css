@@ -1,0 +1,89 @@
+/* Blister look: clean foil-white surfaces, teal accent, round "cavity" shapes and a floating tab pill.
+   Everything is scoped to html[data-skin="blister"], so the Classic look is untouched. Switch in the top-bar menu (Look).
+   To remove the Blister look completely: delete this file and its import line in main.jsx. */
+.bl-hero,.bl-cav { display:none; }
+html[data-skin="blister"] .bl-hero { display:flex; } html[data-skin="blister"] .bl-cav { display:flex; }
+html[data-skin="blister"] { --foil:0 1px 0 #cdd8de, 0 8px 20px rgba(11,31,42,.07); --chip:#e3ecef; --pillbg:#0B1F2A; --pillfg:#9bb0bb;
+  --bg:#EEF4F6; --card:#ffffff; --text:#0B1F2A; --muted:#5b6f7b; --line:#e0e9ed; --accent:#0E8F86; --accent-soft:#dff3f1; --good:#16a34a; --warn:#d97706; --warn-soft:#fff1cf; --bad:#E5484D; --bad-soft:#fde4e5; --r:24px; --shadow:var(--foil); }
+@media (prefers-color-scheme: dark) { html[data-skin="blister"]:not([data-theme="light"]) { --foil:0 1px 0 #2a4350, 0 8px 20px rgba(0,0,0,.35); --chip:#1b3039; --pillbg:#17323d; --pillfg:#7f98a4;
+  --bg:#0A151B; --card:#12232C; --text:#E8F1F4; --muted:#8AA0AB; --line:#1f343e; --accent:#19B3A7; --accent-soft:#0f3a3a; --good:#4ade80; --warn:#fbbf24; --warn-soft:#3a2c0c; --bad:#f2706f; --bad-soft:#3b1414; --shadow:var(--foil); } }
+html[data-skin="blister"][data-theme="dark"] { --foil:0 1px 0 #2a4350, 0 8px 20px rgba(0,0,0,.35); --chip:#1b3039; --pillbg:#17323d; --pillfg:#7f98a4;
+  --bg:#0A151B; --card:#12232C; --text:#E8F1F4; --muted:#8AA0AB; --line:#1f343e; --accent:#19B3A7; --accent-soft:#0f3a3a; --good:#4ade80; --warn:#fbbf24; --warn-soft:#3a2c0c; --bad:#f2706f; --bad-soft:#3b1414; --shadow:var(--foil); }
+html[data-skin="blister"] body { font-family:"DM Sans",Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+html[data-skin="blister"] .h1,
+html[data-skin="blister"] .title { letter-spacing:-.03em; }
+html[data-skin="blister"] .h2 { font-weight:700; letter-spacing:-.01em; }
+html[data-skin="blister"] .top { padding-top:10px; }
+html[data-skin="blister"] .icon { border-radius:50%; width:40px; height:40px; box-shadow:var(--foil); }
+html[data-skin="blister"] .topfix { background:color-mix(in srgb,var(--bg) 94%,transparent); border-bottom:0; backdrop-filter:blur(10px); }
+html[data-skin="blister"] .topfix-menu { border-radius:20px; box-shadow:var(--foil), 0 14px 34px rgba(11,31,42,.22); }
+html[data-skin="blister"] .topfix-menu button { border-radius:14px; }
+html[data-skin="blister"] .syncpill,
+html[data-skin="blister"] .card,
+html[data-skin="blister"] .tile,
+html[data-skin="blister"] .mini,
+html[data-skin="blister"] .chartcard,
+html[data-skin="blister"] .stat,
+html[data-skin="blister"] .ghead { box-shadow:var(--foil); }
+html[data-skin="blister"] .card { border-radius:24px; border-left-width:4px; }
+html[data-skin="blister"] .tile { border-radius:24px; }
+html[data-skin="blister"] .chartcard { border-radius:24px; }
+html[data-skin="blister"] .mini { border-radius:20px; }
+html[data-skin="blister"] .ghead { border-radius:20px; }
+html[data-skin="blister"] .av { border-radius:50%; }
+html[data-skin="blister"] .av.lg { border-radius:50%; }
+html[data-skin="blister"] .pill { border-radius:99px; font-weight:600; }
+html[data-skin="blister"] .kpi { background:var(--card); color:var(--text); border-radius:22px; min-height:100px; box-shadow:var(--foil); }
+html[data-skin="blister"] .kpi span { color:var(--muted); opacity:1; font-weight:600; }
+html[data-skin="blister"] .kpi b { font-size:25px; letter-spacing:-.03em; }
+html[data-skin="blister"] .kpi small { color:var(--muted); opacity:1; }
+html[data-skin="blister"] .kpi::after { width:14px; height:14px; right:16px; top:16px; background:var(--c); opacity:1; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18); }
+html[data-skin="blister"] .k1 { --c:#0E8F86; background:var(--card); }
+html[data-skin="blister"] .k2 { --c:#E8751A; background:var(--card); }
+html[data-skin="blister"] .k3 { --c:#2F6FDE; background:var(--card); }
+html[data-skin="blister"] .k4 { --c:#E5484D; background:var(--card); }
+html[data-skin="blister"] .k4 b { color:var(--bad); }
+html[data-skin="blister"] .total { background:var(--card); color:var(--text); box-shadow:var(--foil); border-radius:24px; }
+html[data-skin="blister"] .total b { color:var(--accent); }
+html[data-skin="blister"] .total span { color:var(--muted); opacity:1; }
+html[data-skin="blister"] .qc { border:0; box-shadow:var(--foil); }
+html[data-skin="blister"] .qc.on { background:var(--accent); color:#fff; box-shadow:none; }
+html[data-skin="blister"] .qc.on b { background:rgba(255,255,255,.25); }
+html[data-skin="blister"] .seg { background:var(--chip); }
+html[data-skin="blister"] .seg button.on { background:var(--accent); color:#fff; box-shadow:none; }
+html[data-skin="blister"] .igroups { background:var(--chip); }
+html[data-skin="blister"] .igroups button.on { background:var(--accent); color:#fff; box-shadow:none; }
+html[data-skin="blister"] .searchbox { border-radius:99px; box-shadow:var(--foil); }
+html[data-skin="blister"] .searchbox input { padding:14px 0; }
+html[data-skin="blister"] .primary { border-radius:99px; background:var(--accent); }
+html[data-skin="blister"] .dlg-danger { border-radius:99px; background:var(--bad); }
+html[data-skin="blister"] .ghost { border-radius:99px; border-width:1.5px; }
+html[data-skin="blister"] .more { border-radius:99px; }
+html[data-skin="blister"] .fbtn { border-radius:99px; border:0; box-shadow:var(--foil); }
+html[data-skin="blister"] .filters select,
+html[data-skin="blister"] .toggle { border-radius:99px; }
+html[data-skin="blister"] .bf { background:var(--accent); }
+html[data-skin="blister"] .bt { background:var(--chip); }
+html[data-skin="blister"] .rtable tr.g td { background:var(--accent-soft); }
+html[data-skin="blister"] .tabs { left:14px; right:14px; bottom:calc(14px + env(safe-area-inset-bottom)); max-width:692px; margin:0 auto; padding:7px 8px; height:64px; border:0; border-radius:32px; background:var(--pillbg); box-shadow:0 12px 28px rgba(11,31,42,.35); align-items:center; justify-content:space-around; }
+html[data-skin="blister"] .tabs button { flex:0 0 auto; width:60px; height:48px; border-radius:24px; color:var(--pillfg); padding:0; justify-content:center; gap:1px; }
+html[data-skin="blister"] .tabs button span { display:none; font-size:10px; }
+html[data-skin="blister"] .tabs button.on { background:var(--accent); color:#fff; width:78px; }
+html[data-skin="blister"] .tabs button.on span { display:block; }
+html[data-skin="blister"] .ver { display:none; }
+html[data-skin="blister"] .dlg,
+html[data-skin="blister"] .fsheet { border-radius:26px; }
+html[data-skin="blister"] .fsheet { border-radius:26px 26px 0 0; }
+html[data-skin="blister"] .loginwrap { background:linear-gradient(135deg,#0B1F2A,#0E8F86 120%); }
+html[data-skin="blister"] .login { border-radius:32px; }
+html[data-skin="blister"] .bl-hero { display:flex; align-items:center; gap:16px; padding:16px; margin-bottom:12px; border-radius:24px; background:var(--card); box-shadow:var(--foil); }
+html[data-skin="blister"] .bl-ring { width:88px; height:88px; border-radius:50%; flex:none; display:grid; place-items:center; background:conic-gradient(var(--accent) calc(var(--p) * 1%), var(--chip) 0); }
+html[data-skin="blister"] .bl-ring i { width:64px; height:64px; border-radius:50%; background:var(--card); display:grid; place-items:center; font-style:normal; font-weight:800; font-size:17px; }
+html[data-skin="blister"] .bl-hero .big { font-size:28px; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
+html[data-skin="blister"] .bl-hero small { color:var(--muted); font-size:12px; }
+html[data-skin="blister"] .bl-cav { display:flex; gap:4px; flex-wrap:wrap; padding:0 14px 12px; margin-top:-4px; }
+html[data-skin="blister"] .bl-cav i { width:11px; height:11px; border-radius:50%; background:var(--accent); box-shadow:inset 0 -2px 0 rgba(0,0,0,.2); }
+html[data-skin="blister"] .bl-cav i.e { background:var(--chip); box-shadow:inset 0 2px 0 var(--line); }
+html[data-skin="blister"] .bl-cav.soon i:not(.e) { background:var(--warn); }
+html[data-skin="blister"] .bl-cav.expired i:not(.e),
+html[data-skin="blister"] .bl-cav.zero i:not(.e) { background:var(--bad); }
