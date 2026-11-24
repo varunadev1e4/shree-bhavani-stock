@@ -25,7 +25,7 @@ if ($cfg.golden_keep) { $keep = [int]$cfg.golden_keep }
 
 # Same order is used by the restore script (parents before children)
 $TABLES = @("companies","products","batches","parties",
-  "employees","emp_entries","trips","emp_cash","expenses","directory","directory_people","temp_bills","temp_returns","temp_collections",
+  "employees","emp_entries","trips","emp_cash","shop_fund","expenses","directory","directory_people","temp_bills","temp_returns","temp_collections",
   "fy_monthly","fy_product_monthly","fy_party_monthly","sales_lines","gst_bills","hsn_monthly","ledger_entries","party_opening",
   "fy_margin_monthly","bill_payments","pending_bills","daily_summary")
 
@@ -56,7 +56,7 @@ try {
   $counts = [ordered]@{}
   foreach ($t in $TABLES) {
     try { $counts[$t] = Dump-Table $t (Join-Path $work ($t + ".json")) }
-    catch { if (@("trips","emp_cash") -contains $t) { $counts[$t] = 0; Log ("  {0}: skipped (run migration-23.sql to create it)" -f $t); continue } else { throw } }
+    catch { if (@("trips","emp_cash","shop_fund") -contains $t) { $counts[$t] = 0; Log ("  {0}: skipped (run migration-23.sql and migration-24.sql to create it)" -f $t); continue } else { throw } }
     Log ("  {0}: {1} rows" -f $t, $counts[$t])
   }
   $manifest = [ordered]@{ created = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); supabase_host = ([uri]$base).Host; tables = $counts }

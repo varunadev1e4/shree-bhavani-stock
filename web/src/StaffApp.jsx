@@ -1,126 +1,67 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { rs, APP, SHOP } from './util'
 import { Mark } from './Logo'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { askConfirm, showMsg } from './dialog'
-import { daysIn, inMonth, ymOf, leaveBalance, cashBalance } from './staffcalc'
-import { STAFF_CATS, iso, dm, span, uploadBill } from './expcommon'
+import { daysIn, inMonth, leaveBalance } from './staffcalc'
+import { STAFF_CATS, iso, dm, span } from './expcommon'
 
-// The only screen an employee login can open: add own expenses, own trips, see own attendance and cash in hand.
+// The only screen an employee login can open: add own expenses (deducted from the shared shop fund) and see own attendance.
 // The database enforces this: an employee login cannot read stock, customers, sales or anyone else's records.
 
 const inp = { className: 'fsel', style: { width: '100%', boxSizing: 'border-box' } }
 
-function AddExpense({ emp, uid, trips, cash, spentMonth, onSaved }) {
-  const open = trips.find((t) => t.status === 'open')
+function AddExpense({ emp, uid, balance, onSaved }) {
   const [cat, setCat] = useState('')
   const [amt, setAmt] = useState('')
   const [d, setD] = useState(iso(new Date()))
   const [note, setNote] = useState('')
-  const [trip, setTrip] = useState(open ? String(open.id) : '')
-  const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  useEffect(() => { if (open && !trip) setTrip(String(open.id)) }, [open]) // eslint-disable-line
 
   const save = async () => {
     const category = cat.trim(), amount = Number(amt)
-    if (!category) return setErr('Choose a category.')
     if (!(amount > 0)) return setErr('Enter the amount.')
+    if (!category) return setErr('Tap what it was for.')
     setBusy(true); setErr('')
-    try {
-      let photo = null
-      if (file) photo = await uploadBill(file, String(emp.id))
-      const { error } = await supabase.from('expenses').insert({ d, category, amount, note: note || null, emp_id: emp.id, trip_id: trip ? Number(trip) : null, created_by: uid, photo })
-      if (error) throw error
-      setCat(''); setAmt(''); setNote(''); setFile(null); onSaved(category + ' ' + rs(amount) + ' saved')
-    } catch (e) { setErr('Could not save: ' + (e.message || e)) }
+    const { error } = await supabase.from('expenses').insert({ d, category, amount, note: note || null, emp_id: emp.id, created_by: uid })
     setBusy(false)
+    if (error) return setErr('Could not save: ' + error.message)
+    setCat(''); setAmt(''); setNote(''); onSaved(category + ' ' + rs(amount) + ' saved')
   }
   return (
-    <div className="chartcard" style={{ display: 'grid', gap: 8 }}>
-      {cash.given > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cash in hand with you</span><b style={{ color: cash.balance < 0 ? 'var(--bad)' : undefined }}>{rs(cash.balance)}</b></div>}
-      {cash.given > 0 && cash.balance < 0 && <span className="muted small">Negative means the shop owes you this much.</span>}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{STAFF_CATS.map((c) => <button key={c} className={'qc' + (cat === c ? ' on' : '')} onClick={() => setCat(c)}>{c}</button>)}</div>
-      <input {...inp} placeholder="Or type another category" value={cat} onChange={(e) => setCat(e.target.value)} />
-      <input {...inp} type="number" inputMode="decimal" placeholder="Amount" value={amt} onChange={(e) => setAmt(e.target.value)} />
-      <input {...inp} type="date" value={d} max={iso(new Date())} onChange={(e) => setD(e.target.value)} />
-      {trips.length > 0 && (
-        <select {...inp} value={trip} onChange={(e) => setTrip(e.target.value)}>
-          <option value="">Not for a trip</option>
-          {trips.filter((t) => t.status === 'open' || String(t.id) === trip).map((t) => <option key={t.id} value={t.id}>{t.city} trip ({dm(t.start_d)})</option>)}
-        </select>)}
-      <input {...inp} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-      <label className="muted small">Bill photo (optional)
-        <input {...inp} type="file" accept="image/*" capture="environment" onChange={(e) => setFile(e.target.files && e.target.files[0])} />
-      </label>
-      {err && <p className="error">{err}</p>}
-      <button className="primary" disabled={busy} onClick={save}>{busy ? 'Saving...' : 'Save expense'}</button>
-      <span className="muted small">Spent this month: {rs(spentMonth)}</span>
-    </div>
+    <>
+      <div className="chartcard" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span>Shop fund balance</span>
+        <b style={{ fontSize: 22, color: balance != null && balance < 0 ? 'var(--bad)' : undefined }}>{balance == null ? '...' : rs(balance)}</b>
+      </div>
+      <div className="chartcard" style={{ display: 'grid', gap: 8 }}>
+        <input {...inp} type="number" inputMode="decimal" placeholder="Amount" value={amt} onChange={(e) => setAmt(e.target.value)} />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{STAFF_CATS.map((c) => <button key={c} className={'qc' + (cat === c ? ' on' : '')} onClick={() => setCat(c)}>{c}</button>)}</div>
+        <input {...inp} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <label className="muted small">Date<input {...inp} type="date" value={d} max={iso(new Date())} onChange={(e) => setD(e.target.value)} /></label>
+        {err && <p className="error">{err}</p>}
+        <button className="primary" disabled={busy} onClick={save}>{busy ? 'Saving...' : 'Save expense'}</button>
+      </div>
+    </>
   )
 }
 
-function Recent({ rows, trips, reload }) {
+function Recent({ rows, reload }) {
   const del = async (r) => {
-    if (!await askConfirm('Delete ' + r.category + ' ' + rs(r.amount) + '?')) return
+    if (!await askConfirm('Delete ' + r.category + ' ' + rs(r.amount) + '? It will go back into the fund.')) return
     const { error } = await supabase.from('expenses').delete().eq('id', r.id)
     if (error) return showMsg('Could not delete: ' + error.message)
     reload()
   }
-  const city = (id) => { const t = trips.find((x) => x.id === id); return t ? t.city : '' }
   const editable = (r) => Date.now() - new Date(r.created_at).getTime() < 864e5
-  if (!rows.length) return <p className="muted small">No expenses entered this month.</p>
+  if (!rows.length) return <p className="muted small">You have not entered any expenses this month.</p>
   return rows.map((r) => (
     <div key={r.id} className="chartcard" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-      <span><b>{dm(r.d)}</b> {r.category}{r.trip_id ? <span className="muted small"> | {city(r.trip_id)} trip</span> : ''}{r.note ? <span className="muted small"> | {r.note}</span> : ''}{r.photo ? <span className="muted small"> | photo</span> : ''}</span>
+      <span><b>{dm(r.d)}</b> {r.category}{r.note ? <span className="muted small"> | {r.note}</span> : ''}</span>
       <span><b>{rs(r.amount)}</b> {editable(r) && <button className="ghost sm" onClick={() => del(r)}>x</button>}</span>
     </div>))
-}
-
-function Trips({ emp, uid, trips, exps, reload }) {
-  const [city, setCity] = useState('')
-  const [why, setWhy] = useState('')
-  const [from, setFrom] = useState(iso(new Date()))
-  const [err, setErr] = useState('')
-  const open = trips.find((t) => t.status === 'open')
-  const start = async () => {
-    if (!city.trim()) return setErr('Enter the city.')
-    const { error } = await supabase.from('trips').insert({ emp_id: emp.id, city: city.trim(), purpose: why || null, start_d: from, created_by: uid })
-    if (error) return setErr('Could not save: ' + error.message)
-    setCity(''); setWhy(''); setErr(''); reload()
-  }
-  const end = async (t) => {
-    if (!await askConfirm('End the ' + t.city + ' trip today?')) return
-    const { error } = await supabase.from('trips').update({ status: 'closed', end_d: iso(new Date()) }).eq('id', t.id)
-    if (error) return showMsg('Could not save: ' + error.message)
-    reload()
-  }
-  const tot = (id) => exps.filter((x) => x.trip_id === id).reduce((s, x) => s + Number(x.amount), 0)
-  return (
-    <>
-      {open ? (
-        <div className="chartcard" style={{ display: 'grid', gap: 6 }}>
-          <b>On trip: {open.city}</b>
-          <span className="muted small">Since {dm(open.start_d)}{open.purpose ? ' | ' + open.purpose : ''}</span>
-          <span>Spent so far: <b>{rs(tot(open.id))}</b></span>
-          <button className="ghost" style={{ margin: 0 }} onClick={() => end(open)}>End this trip</button>
-        </div>) : (
-        <div className="chartcard" style={{ display: 'grid', gap: 8 }}>
-          <b>Start a trip</b>
-          <input {...inp} placeholder="City / place" value={city} onChange={(e) => setCity(e.target.value)} />
-          <input {...inp} placeholder="Purpose (optional)" value={why} onChange={(e) => setWhy(e.target.value)} />
-          <input {...inp} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          {err && <p className="error">{err}</p>}
-          <button className="primary" onClick={start}>Start trip</button>
-        </div>)}
-      {trips.filter((t) => t.status !== 'open').length > 0 && <h2 className="h2" style={{ marginTop: 14 }}>Earlier trips</h2>}
-      {trips.filter((t) => t.status !== 'open').sort((a, b) => b.start_d.localeCompare(a.start_d)).map((t) => (
-        <div key={t.id} className="chartcard" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span><b>{t.city}</b> <span className="muted small">{dm(t.start_d)}{t.end_d && t.end_d !== t.start_d ? ' to ' + dm(t.end_d) : ''}</span></span><b>{rs(tot(t.id))}</b>
-        </div>))}
-    </>)
 }
 
 function Attendance({ emp, entries }) {
@@ -161,31 +102,35 @@ export default function StaffApp({ session, empId }) {
   const [tab, setTab] = useState('exp')
   const [emp, setEmp] = useState(null)
   const [exps, setExps] = useState([])
-  const [trips, setTrips] = useState([])
-  const [cashRows, setCashRows] = useState([])
   const [ents, setEnts] = useState([])
+  const [balance, setBalance] = useState(null)
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const uid = session.user.id
 
   const load = useCallback(async () => {
-    const [a, b, c, d, e] = await Promise.all([
+    const [a, b, e, f] = await Promise.all([
       supabase.from('employees').select('*').eq('id', empId).limit(1),
       supabase.from('expenses').select('*').order('d', { ascending: false }).order('id', { ascending: false }),
-      supabase.from('trips').select('*').order('start_d', { ascending: false }),
-      supabase.from('emp_cash').select('*'),
       supabase.from('emp_entries').select('*').order('d'),
+      supabase.rpc('fund_balance'),
     ])
-    const bad = [a, b, c, d, e].find((x) => x.error)
+    const bad = [a, b, e].find((x) => x.error)
     if (bad) return setErr(bad.error.message)
-    setErr(''); setEmp(a.data[0] || null); setExps(b.data); setTrips(c.data); setCashRows(d.data); setEnts(e.data)
+    setErr(''); setEmp(a.data[0] || null); setExps(b.data); setEnts(e.data)
+    if (!f.error) setBalance(f.data == null ? null : Number(f.data))
   }, [empId])
   useEffect(() => { load() }, [load])
+  // Keep the shared balance fresh: every 30 seconds and whenever the app comes back to the front
+  useEffect(() => {
+    const t = setInterval(() => { if (!document.hidden) load() }, 30000)
+    const v = () => { if (!document.hidden) load() }
+    document.addEventListener('visibilitychange', v)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', v) }
+  }, [load])
 
-  const cash = useMemo(() => cashBalance(cashRows, exps), [cashRows, exps])
   const ym = curYm(), sp = span(ym)
   const monthRows = exps.filter((x) => x.d >= sp.from && x.d <= sp.to)
-  const spentMonth = monthRows.reduce((s, x) => s + Number(x.amount), 0)
   const saved = (msg) => { setOk(msg); setTimeout(() => setOk(''), 3000); load() }
 
   if (!emp && !err) return <p className="muted pad">Loading...</p>
@@ -198,15 +143,14 @@ export default function StaffApp({ session, empId }) {
       {err && <p className="error pad">{err}</p>}
       {ok && <p className="pad" style={{ color: 'var(--good)', fontWeight: 600 }}>{ok}</p>}
       <div style={{ display: 'flex', gap: 6, margin: '8px 0 12px' }}>
-        {[['exp', 'Expenses'], ['trips', 'Trips'], ['att', 'My attendance']].map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}
+        {[['exp', 'Expenses'], ['att', 'My attendance']].map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       {emp && tab === 'exp' && (
         <>
-          <AddExpense emp={emp} uid={uid} trips={trips} cash={cash} spentMonth={spentMonth} onSaved={saved} />
-          <h2 className="h2" style={{ marginTop: 14 }}>{ymName(ym)}</h2>
-          <Recent rows={monthRows} trips={trips} reload={load} />
+          <AddExpense emp={emp} uid={uid} balance={balance} onSaved={saved} />
+          <h2 className="h2" style={{ marginTop: 14 }}>My entries, {ymName(ym)}</h2>
+          <Recent rows={monthRows} reload={load} />
         </>)}
-      {emp && tab === 'trips' && <Trips emp={emp} uid={uid} trips={trips} exps={exps} reload={load} />}
       {emp && tab === 'att' && <Attendance emp={emp} entries={ents} />}
     </div>
   )

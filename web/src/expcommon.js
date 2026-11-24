@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 
 // Shared by the owner's Expenses screen and the employee's screen.
 export const DEFAULT_CATS = ['Rent', 'Electricity', 'Fuel / transport', 'Tea / food', 'Packing', 'Repairs', 'Phone / internet', 'Fees / licence', 'Stationery', 'Other']
-export const STAFF_CATS = ['Fuel / transport', 'Bus / train fare', 'Lodging', 'Food', 'Parking / toll', 'Loading / unloading', 'Packing', 'Repairs', 'Phone', 'Other']
+export const STAFF_CATS = ['Fuel', 'Travel', 'Food', 'Packing', 'Repairs', 'Other']
 export const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
 export const dm = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 export const span = (ym) => { const y = Math.floor(ym / 100), m = ym % 100; return { from: y + '-' + String(m).padStart(2, '0') + '-01', to: y + '-' + String(m).padStart(2, '0') + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0') } }

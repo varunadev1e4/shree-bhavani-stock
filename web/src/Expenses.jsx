@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 import { rs } from './util'
 import ExportBar from './Export'
 import MonthPick, { curYm, ymName } from './MonthPick'
-import { askConfirm, showMsg } from './dialog'
+import { askConfirm, askPrompt, showMsg } from './dialog'
 import { flagged, billUrl } from './expcommon'
 
 // Shop expenses (rent, electricity, fuel...). Saved only in this app, not connected to Profit Maker.
@@ -25,7 +25,8 @@ export default function Expenses({ back, go }) {
   const [err, setErr] = useState('')
   const [filter, setFilter] = useState('')
   const [emps, setEmps] = useState([])
-  const [trips, setTrips] = useState([])
+  const [fund, setFund] = useState(null)
+  const [tops, setTops] = useState([])
   const [by, setBy] = useState('')
   const [who, setWho] = useState('')
 
@@ -38,8 +39,22 @@ export default function Expenses({ back, go }) {
   useEffect(() => { setRows(null); load() }, [load])
   useEffect(() => {
     supabase.from('employees').select('id,name,active').order('name').then(({ data }) => data && setEmps(data))
-    supabase.from('trips').select('id,city,start_d').then(({ data }) => data && setTrips(data))
   }, [])
+  const loadFund = useCallback(async () => {
+    const [b, t] = await Promise.all([supabase.rpc('fund_balance'), supabase.from('shop_fund').select('*').order('d', { ascending: false }).order('id', { ascending: false }).limit(20)])
+    if (!b.error) setFund(b.data == null ? null : Number(b.data))
+    if (!t.error) setTops(t.data)
+  }, [])
+  useEffect(() => { loadFund() }, [loadFund, rows])
+  const topUp = async () => {
+    const v = await askPrompt('Money added to the shop fund (Rs)', '')
+    const amount = Number(v)
+    if (!(amount > 0)) return
+    const { error } = await supabase.from('shop_fund').insert({ d: iso(new Date()), amount })
+    if (error) return showMsg('Could not save: ' + error.message + ' (run migration-24.sql in Supabase)')
+    loadFund()
+  }
+  const delTop = async (t) => { if (await askConfirm('Remove the ' + rs(t.amount) + ' you added on ' + dm(t.d) + '?')) { await supabase.from('shop_fund').delete().eq('id', t.id); loadFund() } }
   // Remember categories typed earlier
   useEffect(() => {
     supabase.from('expenses').select('category').order('id', { ascending: false }).limit(300).then(({ data }) => {
@@ -53,7 +68,6 @@ export default function Expenses({ back, go }) {
   }, [rows])
   const total = byCat.reduce((s, [, v]) => s + v, 0)
   const name = (id) => (emps.find((e) => e.id === id) || {}).name || ''
-  const city = (id) => (trips.find((t) => t.id === id) || {}).city || ''
   const byPerson = useMemo(() => {
     const m = new Map(); (rows || []).filter((r) => r.emp_id).forEach((r) => { const o = m.get(r.emp_id) || { sum: 0, last: '' }; o.sum += Number(r.amount); if (r.d > o.last) o.last = r.d; m.set(r.emp_id, o) })
     return [...m.entries()].sort((a, b) => b[1].sum - a[1].sum)
@@ -75,7 +89,7 @@ export default function Expenses({ back, go }) {
 
   const build = () => {
     const list = [...shown].sort((a, b) => a.d.localeCompare(b.d))
-    const out = list.map((r) => [dm(r.d), r.category, [name(r.emp_id), city(r.trip_id) && city(r.trip_id) + ' trip', r.note].filter(Boolean).join(' | '), money(r.amount)])
+    const out = list.map((r) => [dm(r.d), r.category, [name(r.emp_id), r.note].filter(Boolean).join(' | '), money(r.amount)])
     const bold = [out.length]
     out.push(['', 'TOTAL', '', money(list.reduce((s, r) => s + Number(r.amount), 0))])
     if (!filter) { out.push(['', '', '', '']); byCat.forEach(([c, v]) => out.push(['', c, 'category total', money(v)])) }
@@ -86,8 +100,16 @@ export default function Expenses({ back, go }) {
   return (
     <div className="app">
       <header className="top"><div><button className="ghost sm" onClick={back}>Back</button><h1 className="h1" style={{ marginTop: 8 }}>Expenses</h1></div>
-        <div style={{ display: 'flex', gap: 6 }}>{go && <button className="ghost sm" onClick={() => go('trips')}>Trips</button>}<button className="ghost sm" onClick={openForm}>+ Add</button></div></header>
+        <div style={{ display: 'flex', gap: 6 }}><button className="ghost sm" onClick={openForm}>+ Add</button></div></header>
       <MonthPick ym={ym} onChange={setYm} />
+      <div className="chartcard" style={{ marginBottom: 12, display: 'grid', gap: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Shop fund (employees spend from this)<br /><span className="muted small">Every expense an employee logs is deducted</span></span>
+          <b style={{ fontSize: 20, color: fund != null && fund < 0 ? 'var(--bad)' : undefined }}>{fund == null ? '-' : rs(fund)}</b>
+        </div>
+        <button className="ghost sm" onClick={topUp}>+ Add money to fund</button>
+        {tops.slice(0, 3).map((t) => <div key={t.id} className="muted small" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Added {dm(t.d)}</span><span>{rs(t.amount)} <button className="ghost sm" onClick={() => delTop(t)}>x</button></span></div>)}
+      </div>
       {form && (
         <div className="chartcard" style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{cats.map((c) => <button key={c} className={'qc' + (cat === c ? ' on' : '')} onClick={() => setCat(c)}>{c}</button>)}</div>
@@ -125,7 +147,7 @@ export default function Expenses({ back, go }) {
           <div style={{ margin: '12px 0 4px' }}><ExportBar build={build} /></div>
           {shown.map((r) => (
             <div key={r.id} className="chartcard" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span><b>{dm(r.d)}</b> {r.category}{r.emp_id ? <span className="muted small"> | {name(r.emp_id)}</span> : ''}{r.trip_id ? <span className="muted small"> | {city(r.trip_id)} trip</span> : ''}{r.note ? <span className="muted small"> | {r.note}</span> : ''}{big.has(r.id) ? <span style={{ color: 'var(--warn)' }} title="Much larger than usual for this category"> unusually large</span> : ''}</span>
+              <span><b>{dm(r.d)}</b> {r.category}{r.emp_id ? <span className="muted small"> | {name(r.emp_id)}</span> : ''}{r.note ? <span className="muted small"> | {r.note}</span> : ''}{big.has(r.id) ? <span style={{ color: 'var(--warn)' }} title="Much larger than usual for this category"> unusually large</span> : ''}</span>
               <span><b>{rs(r.amount)}</b> {r.photo && <button className="ghost sm" onClick={() => photo(r.photo)}>Bill</button>} <button className="ghost sm" onClick={() => del(r)}>x</button></span>
             </div>))}
         </>)}

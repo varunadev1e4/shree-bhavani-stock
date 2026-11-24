@@ -3,8 +3,8 @@ import { supabase } from './supabase'
 import { rs, num, waLink, SHOP } from './util'
 import { exportPdf } from './exporter'
 import MonthPick, { curYm, ymName } from './MonthPick'
-import { calc, inMonth, daysIn, leaveBalance, cashBalance } from './staffcalc'
-import { askConfirm, askPrompt, showMsg } from './dialog'
+import { calc, inMonth, daysIn, leaveBalance } from './staffcalc'
+import { askConfirm, showMsg } from './dialog'
 
 // Staff: attendance exceptions, advances, salary. Saved only in this app's own tables, not connected to Profit Maker.
 const KINDS = [
@@ -31,7 +31,7 @@ function EmpForm({ init, onSave, onCancel }) {
       {Number(f.adv_cut) > 0 && <label className="muted small">Automatic cut starts from<input {...inp} type="date" value={f.adv_cut_from || ''} onChange={(e) => set('adv_cut_from', e.target.value)} /></label>}
       <label className="muted small">Paid leaves allowed per year (0 = do not track)<input {...inp} type="number" inputMode="decimal" value={f.leave_quota || ''} onChange={(e) => set('leave_quota', e.target.value)} /></label>
       <label className="muted small">Last working day (only if leaving; salary stops after it)<input {...inp} type="date" value={f.leave_date || ''} onChange={(e) => set('leave_date', e.target.value)} /></label>
-      <label className="muted small">Login email for this employee (optional). First add the same email in Supabase &gt; Authentication &gt; Users &gt; Add user. The employee can then only add expenses and trips and see own attendance.<input {...inp} type="email" placeholder="employee@example.com" value={f.login || ''} onChange={(e) => set('login', e.target.value)} /></label>
+      <label className="muted small">Login email for this employee (optional). First add the same email in Supabase &gt; Authentication &gt; Users &gt; Add user. The employee can then only add expenses and see own attendance.<input {...inp} type="email" placeholder="employee@example.com" value={f.login || ''} onChange={(e) => set('login', e.target.value)} /></label>
       <div className="btnrow" style={{ paddingTop: 0 }}>
         <button className="primary" style={{ flex: 1 }} onClick={() => f.name.trim() && onSave({ ...f, name: f.name.trim(), salary: Number(f.salary) || 0, join_date: f.join_date || null, adv_cut: Number(f.adv_cut) || 0, adv_cut_from: f.adv_cut_from || (Number(f.adv_cut) > 0 ? iso(new Date()).slice(0, 8) + '01' : null), leave_quota: Number(f.leave_quota) || 0, leave_date: f.leave_date || null, login: (f.login || '').trim().toLowerCase() })}>Save</button>
         <button className="ghost" style={{ margin: 0 }} onClick={onCancel}>Cancel</button>
@@ -43,22 +43,7 @@ function EmpForm({ init, onSave, onCancel }) {
 function Detail({ emp, all, ym, setYm, reload, back, edit }) {
   const c = useMemo(() => calc(emp, all, ym), [emp, all, ym])
   const lb = useMemo(() => leaveBalance(emp, all, ym), [emp, all, ym])
-  const [cashRows, setCashRows] = useState([])
-  const [spentRows, setSpentRows] = useState([])
-  const loadCash = useCallback(async () => {
-    const [a, b] = await Promise.all([supabase.from('emp_cash').select('*').eq('emp_id', emp.id), supabase.from('expenses').select('amount').eq('emp_id', emp.id)])
-    if (!a.error && !b.error) { setCashRows(a.data); setSpentRows(b.data) }
-  }, [emp.id])
-  useEffect(() => { loadCash() }, [loadCash])
-  const cb = cashBalance(cashRows, spentRows)
-  const giveCash = async (kind) => {
-    const v = await askPrompt(kind === 'given' ? 'Cash given to ' + emp.name + ' for expenses (Rs)' : 'Cash returned by ' + emp.name + ' (Rs)', '')
-    const amount = Number(v)
-    if (!(amount > 0)) return
-    const { error } = await supabase.from('emp_cash').insert({ emp_id: emp.id, d: iso(new Date()), kind, amount })
-    if (error) return showMsg('Could not save: ' + error.message + ' (run migration-23.sql in Supabase)')
-    loadCash()
-  }
+
   const [kind, setKind] = useState(null)
   const [d, setD] = useState(iso(new Date()))
   const [amt, setAmt] = useState('')
@@ -103,7 +88,7 @@ function Detail({ emp, all, ym, setYm, reload, back, edit }) {
         {c.overpaid && <div className="small" style={{ color: 'var(--bad)' }}>Paid more than the salary due by {rs(-c.balance)}. Record the advance cut next month or reduce the next payment.</div>}
         <div className="muted small" style={{ marginTop: 4 }}>Advance still to recover: <b>{rs(c.advance)}</b>{c.paidLeave ? ' | paid leaves this month: ' + c.paidLeave : ''}</div>
         {lb.quota > 0 && <div className="muted small">Paid leaves this year: used {lb.used} of {lb.quota}, {Math.max(0, lb.left)} left</div>}
-        {(cashRows.length > 0 || spentRows.length > 0) && <div className="muted small">Cash in hand with {emp.name}: <b style={{ color: cb.balance < 0 ? 'var(--bad)' : undefined }}>{rs(cb.balance)}</b> (given {rs(cb.given)}, returned {rs(cb.back)}, spent {rs(cb.spent)}){cb.balance < 0 ? ' | shop owes the employee' : ''}</div>}
+
         <div className="muted small">Unpaid days cut at salary / {c.days} days per day.</div>
       </div>
       <h2 className="h2" style={{ marginTop: 14 }}>Add entry</h2>
@@ -124,7 +109,6 @@ function Detail({ emp, all, ym, setYm, reload, back, edit }) {
           <span><b>{dm(e.d)}</b> {LABEL[e.kind]}{e.note ? <span className="muted small"> | {e.note}</span> : ''}</span>
           <span>{['absent', 'half', 'paidleave'].includes(e.kind) ? '' : rs(e.amount)} <button className="ghost sm" onClick={() => del(e)}>x</button></span>
         </div>))}
-      <div className="btnrow"><button className="ghost sm" onClick={() => giveCash('given')}>Cash given</button><button className="ghost sm" onClick={() => giveCash('returned')}>Cash returned</button></div>
       <div className="btnrow"><button className="ghost sm" onClick={slip}>Salary slip PDF</button><button className="ghost sm" onClick={text}>Send on WhatsApp</button></div>
     </div>
   )
@@ -212,7 +196,7 @@ export default function Staff({ back, go }) {
           <span className="muted small">{e.role || 'Staff'} | salary {rs(e.salary)} | leave {num(c.unpaid)} day(s){c.advance > 0 ? ' | advance ' + rs(c.advance) : ''}{logins[e.id] ? ' | has login' : ''}</span>
         </button>))}
       {emps && emps.some((e) => !e.active) && <button className="more" onClick={() => setShowOld(!showOld)}>{showOld ? 'Hide' : 'Show'} people who left</button>}
-      <p className="muted small" style={{ marginTop: 14 }}>Staff records are saved only in this app and are not connected to Profit Maker. Owner logins can see them; an employee login sees only that employee's own expenses, trips and attendance.</p>
+      <p className="muted small" style={{ marginTop: 14 }}>Staff records are saved only in this app and are not connected to Profit Maker. Owner logins can see them; an employee login sees only that employee's own expenses and attendance.</p>
     </div>
   )
 }
