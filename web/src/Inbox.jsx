@@ -283,7 +283,7 @@ function Counts() {
 // ---------- bills with no delivery tag yet ----------
 const fyOf = (d) => String(Number(d.slice(0, 4)) - (Number(d.slice(5, 7)) < 4 ? 1 : 0))
 const addMonths = (s, n) => { const x = new Date(s + 'T00:00:00'); x.setMonth(x.getMonth() + n); return iso(x) }
-const norm = (no) => String(no || '').replace(/\s+/g, '').toUpperCase()
+const norm = (no) => String(no || '').replace(/\s+/g, '').toUpperCase().replace(/O/g, '0')
 function FollowUp({ emps, onChange }) {
   const [days, setDays] = useState(7)
   const [creditOnly, setCreditOnly] = useState(false)

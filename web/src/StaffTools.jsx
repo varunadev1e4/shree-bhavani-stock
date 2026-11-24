@@ -56,7 +56,7 @@ export function TagBill() {
   }, [])
   useEffect(() => { load() }, [load])
   const tag = async () => {
-    const b = no.trim()
+    const b = no.trim().replace(/\s+/g, '').toUpperCase().replace(/O/g, '0')
     if (!b) return showMsg('Enter the bill number.')
     setBusy(true)
     let { data, error } = await supabase.rpc('tag_bill', { p_bill: b, p_force: false })
@@ -80,7 +80,7 @@ export function TagBill() {
     <>
       <div className="chartcard" style={{ display: 'grid', gap: 8 }}>
         <b>I delivered this bill</b>
-        <input {...inp} placeholder="Bill number" autoCapitalize="characters" value={no} onChange={(e) => setNo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && tag()} />
+        <input {...inp} placeholder="Bill number" autoCapitalize="characters" value={no} onChange={(e) => setNo(e.target.value.toUpperCase().replace(/O/g, '0'))} onKeyDown={(e) => e.key === 'Enter' && tag()} />
         <button className="primary" disabled={busy} onClick={tag}>{busy ? 'Saving...' : 'Tag bill'}</button>
       </div>
       <h2 className="h2" style={{ marginTop: 14 }}>My deliveries ({mine.length})</h2>
