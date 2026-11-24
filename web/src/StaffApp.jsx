@@ -10,6 +10,7 @@ import AttCalendar from './AttCalendar'
 import { STAFF_CATS, iso, dm, span } from './expcommon'
 import { Tasks, TagBill, Report, ReturnNote, RequestMoney, CountSheets } from './StaffTools'
 import { BUILD } from './version'
+import ChangePassword from './ChangePassword'
 import { pushSupported, pushOn, enablePush } from './push'
 
 // The only screen an employee login can open. The database enforces this: an employee login cannot read
@@ -147,6 +148,7 @@ export default function StaffApp({ session, empId }) {
   const monthRows = exps.filter((x) => x.d >= sp.from && x.d <= sp.to)
   const saved = (msg) => { setOk(msg); setTimeout(() => setOk(''), 3000); load() }
   const turnOn = async () => { const r = await enablePush('staff', empId); if (r === true) setPush('on'); else showMsg(r) }
+  const [pwOpen, setPwOpen] = useState(false)
   const badge = { tasks: nTasks, count: nCount }
 
   if (!emp && !err) return <p className="muted pad">Loading...</p>
@@ -154,8 +156,10 @@ export default function StaffApp({ session, empId }) {
     <div className="app">
       <header className="top">
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}><Mark size={38} id="staff" /><div><div className="muted small">{SHOP}</div><h1 className="h1" style={{ fontSize: 20 }}>{emp ? emp.name : APP}</h1></div></div>
-        <button className="ghost sm" onClick={() => supabase.auth.signOut()}>Sign out</button>
+        <div style={{ display: 'flex', gap: 6 }}><button className="ghost sm" onClick={() => setPwOpen(true)}>Password</button>
+        <button className="ghost sm" onClick={() => supabase.auth.signOut()}>Sign out</button></div>
       </header>
+      {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
       {err && <p className="error pad">{err}</p>}
       {ok && <p className="pad" style={{ color: 'var(--good)', fontWeight: 600 }}>{ok}</p>}
       {emp && tab === 'home' && (

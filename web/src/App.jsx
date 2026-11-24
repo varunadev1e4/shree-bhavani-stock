@@ -16,6 +16,7 @@ import Inbox, { useInboxCount } from './Inbox'
 import WeeklySummary from './WeeklySummary'
 import { BUILD } from './version'
 import About from './About'
+import ChangePassword from './ChangePassword'
 import { nameOf } from './me'
 import { useBackLayer } from './backstack'
 import { ActivityPage } from './ActivityLog'
@@ -357,6 +358,7 @@ function Shell() {
   const [sx, setSx] = useState('stock')
   const [stale, setStale] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
   const [syncRow, setSyncRow] = useState(null)
   const [theme, setThemeState] = useState(getTheme())
   const nInbox = useInboxCount(rev)
@@ -402,6 +404,7 @@ function Shell() {
             <button className="icon" onClick={() => setMenu((m) => !m)} aria-label="Menu" title="Menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg></button>
           </div>
         </div>
+        {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
         {menu && (
           <>
             <div className="topfix-back" onClick={() => setMenu(false)} />
@@ -409,6 +412,8 @@ function Shell() {
               <button type="button" onClick={() => { cycleTheme(); setMenu(false) }}>Theme: {theme}</button>
               <button type="button" onClick={() => { refreshAll(); setMenu(false) }}>Refresh data</button>
               <button type="button" onClick={() => { setMenu(false); go('about') }}>About</button>
+              <button type="button" onClick={() => { setMenu(false); setPwOpen(true) }}>Change password</button>
+              <button type="button" onClick={() => { setMenu(false); setPwOpen(true) }}>Change password</button>
               <button type="button" onClick={() => { setMenu(false); supabase.auth.signOut() }}>Sign out</button>
             </div>
           </>)}
