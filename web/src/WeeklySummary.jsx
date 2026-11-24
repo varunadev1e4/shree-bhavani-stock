@@ -55,7 +55,7 @@ export default function WeeklySummary({ back }) {
   const build = () => ({
     title: 'Weekly summary', subtitle: dm(w.from) + ' to ' + dm(w.to), filename: 'weekly-' + w.from, columns: ['Item', 'Value'],
     rows: [['Sales', money(w.sales)], ['Bills', String(w.bills)], ['Margin', money(w.margin)], ['Collected', money(w.collected)], ['Purchases', money(w.purchases)], ['Expenses', money(w.expenses)],
-      ...w.byCat.map(([c, a]) => ['  ' + c, money(a)]), ...w.delivered.map(([n, c]) => ['Delivered by ' + n, String(c)]), ['Shop fund balance', w.fund == null ? '' : money(w.fund)]], numCols: [1],
+      ...w.byCat.map(([c, a]) => ['  ' + c, money(a)]), ['Bills delivered', String(w.delivered.reduce((t, x) => t + x[1], 0))], ['Shop fund balance', w.fund == null ? '' : money(w.fund)]], numCols: [1],
   })
   const Row = ({ l, v, s }) => <div className="mini"><span>{l}</span><b>{v}</b>{s && <small className="muted">{s}</small>}</div>
   return (
@@ -80,7 +80,7 @@ export default function WeeklySummary({ back }) {
           </section>
           {w.best && <p className="muted small">Best day: {dm(w.best.d)} with {rs(w.best.net)}.</p>}
           {w.byCat.length > 0 && <div className="chartcard"><b>Expenses by type</b>{w.byCat.map(([c, a]) => <div key={c} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{c}</span><span>{rs(a)}</span></div>)}</div>}
-          <div className="chartcard" style={{ marginTop: 8 }}><b>Deliveries tagged</b>{w.delivered.length ? w.delivered.map(([n, c]) => <div key={n} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{n}</span><span>{c} bills</span></div>) : <p className="muted small">None tagged this week.</p>}</div>
+          <div className="chartcard" style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between' }}><b>Bills tagged as delivered</b><span>{w.delivered.reduce((t, x) => t + x[1], 0)}</span></div>
           <div className="chartcard" style={{ marginTop: 8 }}><b>Days off</b>{w.off.length ? w.off.map(([n, o]) => <div key={n} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{n}</span><span>{o.a} absent, {o.h} half, {o.p} paid leave</span></div>) : <p className="muted small">No leave or absence marked.</p>}</div>
           <div className="chartcard" style={{ marginTop: 8 }}><b>Waiting for you (right now)</b>
             <div>Fund requests: {w.open.req}</div><div>Reports and suggestions: {w.open.rep}</div><div>Return notes to act on: {w.open.ret}</div><div>Open tasks: {w.open.tasks}{w.open.late ? ' (' + w.open.late + ' overdue)' : ''}</div></div>

@@ -14,6 +14,7 @@ import Attendance from './Attendance'
 import StaffStats from './StaffStats'
 import Inbox, { useInboxCount } from './Inbox'
 import WeeklySummary from './WeeklySummary'
+import { ActivityPage } from './ActivityLog'
 import { getRole } from './role'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
 import { Mark } from './Logo'
@@ -143,12 +144,11 @@ function Home({ go }) {
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('temp')}>Temporary bill</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('col')}>Collections</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('exp')}>Expenses</button>
-        <button className="ghost" style={{ margin: 0 }} onClick={() => go('att')}>Mark attendance</button>
+        <button className="ghost" style={{ margin: 0 }} onClick={() => go('bill')}>Share a bill</button>
       </div>
       <button className="ghost sm" style={{ marginTop: 8 }} onClick={() => setMore(!more)}>{more ? 'Fewer options' : 'More options'}</button>
       {more && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
-          <button className="ghost" style={{ margin: 0 }} onClick={() => go('bill')}>Share a bill</button>
           <button className="ghost" style={{ margin: 0 }} onClick={() => go('week')}>Weekly summary</button>
           <button className="ghost" style={{ margin: 0 }} onClick={() => go('act')}>Activity log</button>
         </div>)}
@@ -392,12 +392,12 @@ function Shell() {
   }, [])
   const go = (t, side) => { if (side) setPs(side); if (t === 'expiry') { setSx('expiry'); t = 'stock' } else if (t === 'stock') setSx('stock'); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('home')} />, act: <Inbox back={() => go('home')} start="act" />, week: <WeeklySummary back={() => go('home')} />, stats: <StaffStats back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
+  const view = { home: <Home go={go} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('home')} />, act: <ActivityPage back={() => go('home')} />, week: <WeeklySummary back={() => go('home')} />, stats: <StaffStats back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 25</div>
+      <div className="ver">Build 26</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['parties', 'Parties'], ['insights', 'Insights'], ['staff', 'Staff']].map(([k, l]) => (
           <button key={k} className={tab === k || (k === 'staff' && (tab === 'att' || tab === 'stats')) ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>

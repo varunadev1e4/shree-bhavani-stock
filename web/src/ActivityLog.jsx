@@ -61,3 +61,11 @@ export default function ActivityLog() {
       <p className="muted small">This log cannot be edited or deleted from the app. It records only this app's own data, never Profit Maker.</p>
     </>)
 }
+
+export function ActivityPage({ back }) {
+  return (
+    <div className="app">
+      <header className="top"><div><button className="ghost sm" onClick={back}>Back</button><h1 className="h1" style={{ marginTop: 8 }}>Activity log</h1></div></header>
+      <ActivityLog />
+    </div>)
+}

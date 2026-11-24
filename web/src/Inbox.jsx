@@ -5,7 +5,6 @@ import ExportBar from './Export'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { askConfirm, askPrompt, showMsg } from './dialog'
 import { iso, dm, span, money } from './expcommon'
-import ActivityLog from './ActivityLog'
 import { pushSupported, pushOn, enablePush, disablePush } from './push'
 
 // Owner's inbox for everything employees send: fund requests, reports and suggestions, return notes,
@@ -389,7 +388,7 @@ function Deliveries() {
     </>)
 }
 
-const TABS = [['req', 'Requests', Requests], ['rep', 'Reports', Reports], ['ret', 'Returns', Returns], ['task', 'Tasks', Tasks], ['cnt', 'Stock count', Counts], ['del', 'Deliveries', Deliveries], ['act', 'Activity', ActivityLog]]
+const TABS = [['req', 'Requests', Requests], ['rep', 'Reports', Reports], ['ret', 'Returns', Returns], ['task', 'Tasks', Tasks], ['cnt', 'Stock count', Counts], ['del', 'Deliveries', Deliveries]]
 export default function Inbox({ back, start }) {
   const [tab, setTab] = useState(start || 'req')
   const [push, setPush] = useState(pushSupported() ? 'ask' : 'none')
@@ -398,7 +397,7 @@ export default function Inbox({ back, start }) {
     if (push === 'on') { await disablePush(); return setPush('ask') }
     const r = await enablePush('owner', null); if (r === true) setPush('on'); else showMsg(r)
   }
-  const CHIPS = [['req', 'Requests', ['req']], ['rep', 'Reports & returns', ['rep', 'ret']], ['task', 'Tasks & counts', ['task', 'cnt']], ['del', 'Deliveries', ['del']], ['act', 'Activity', ['act']]]
+  const CHIPS = [['req', 'Requests', ['req']], ['rep', 'Reports & returns', ['rep', 'ret']], ['task', 'Tasks & counts', ['task', 'cnt']], ['del', 'Deliveries', ['del']]]
   const chipOf = (t) => (CHIPS.find((c) => c[2].includes(t)) || CHIPS[0])[0]
   const parts = (CHIPS.find((c) => c[0] === chipOf(tab)) || CHIPS[0])[2]
   const title = { rep: ['Reports and suggestions', 'Sales return notes'], task: ['Tasks', 'Stock counts'] }
@@ -407,7 +406,7 @@ export default function Inbox({ back, start }) {
       <header className="top"><div><button className="ghost sm" onClick={back}>Back</button><h1 className="h1" style={{ marginTop: 8 }}>Staff inbox</h1></div>
         {push !== 'none' && <button className="ghost sm" onClick={toggle}>{push === 'on' ? 'Notifications on' : 'Turn on notifications'}</button>}</header>
       <div className="tabscroll" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, marginBottom: 10 }}>
-        {CHIPS.filter((c) => c[0] !== 'act' || chipOf(tab) === 'act').map(([k, l]) => <button key={k} className={'qc' + (chipOf(tab) === k ? ' on' : '')} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}</button>)}
+        {CHIPS.map(([k, l]) => <button key={k} className={'qc' + (chipOf(tab) === k ? ' on' : '')} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       {parts.map((k, i) => { const V = TABS.find((t) => t[0] === k)[2]; const tt = title[chipOf(tab)]; return <div key={k}>{parts.length > 1 && <h2 className="h2" style={{ marginTop: i ? 18 : 0 }}>{tt[i]}</h2>}<V /></div> })}
     </div>

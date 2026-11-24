@@ -217,12 +217,10 @@ export default function Staff({ back, go }) {
           <div className="mini"><span>Still to pay</span><b>{rs(T.bal)}</b></div>
           <div className="mini"><span>Advances out</span><b>{rs(T.adv)}</b></div>
         </div>)}
-      {expTot && (
-        <div className="minis" style={{ marginBottom: 10 }}>
-          <div className="mini"><span>Expenses this month</span><b>{rs(expTot.all)}</b></div>
-          <div className="mini"><span>Entered by staff</span><b>{rs(expTot.staff)}</b></div>
-          <div className="mini"><span>Expenses + salaries</span><b>{rs(expTot.all + T.net)}</b></div>
-        </div>)}
+      {expTot && go && (
+        <button className="chartcard" style={{ width: '100%', textAlign: 'left', border: 0, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => go('exp')}>
+          <span>Expenses {rs(expTot.all)} (staff {rs(expTot.staff)}) + salaries = <b>{rs(expTot.all + T.net)}</b></span><span className="muted small">Open</span>
+        </button>)}
       {rows.map(({ e, c }) => (
         <button key={e.id} className="chartcard" style={{ width: '100%', textAlign: 'left', border: 0, marginBottom: 8, display: 'grid', gap: 3, opacity: e.active ? 1 : 0.6 }} onClick={() => setSel(e.id)}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{e.name}</b><b style={{ color: c.balance > 0 ? 'var(--warn)' : c.overpaid ? 'var(--bad)' : 'var(--good)' }}>{c.balance > 0 ? 'Due ' + rs(c.balance) : c.overpaid ? 'Overpaid ' + rs(-c.balance) : 'Settled'}</b></div>
