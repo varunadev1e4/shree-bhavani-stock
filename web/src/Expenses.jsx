@@ -26,6 +26,7 @@ export default function Expenses({ back, go }) {
   const [filter, setFilter] = useState('')
   const [emps, setEmps] = useState([])
   const [fund, setFund] = useState(null)
+  const [ledger, setLedger] = useState(null)
   const [tops, setTops] = useState([])
   const [by, setBy] = useState('')
   const [who, setWho] = useState('')
@@ -53,6 +54,17 @@ export default function Expenses({ back, go }) {
     const { error } = await supabase.from('shop_fund').insert({ d: iso(new Date()), amount })
     if (error) return showMsg('Could not save: ' + error.message + ' (run migration-24.sql in Supabase)')
     loadFund()
+  }
+  const openLedger = async () => {
+    if (ledger) return setLedger(null)
+    const [a, b] = await Promise.all([supabase.from('shop_fund').select('*').order('d').order('id'), supabase.from('expenses').select('*').not('emp_id', 'is', null).order('d').order('id')])
+    if (a.error || b.error) return showMsg((a.error || b.error).message)
+    const start = a.data.length ? a.data[0].d : '9999'
+    const ev = [...a.data.map((t) => ({ d: t.d, id: 'f' + t.id, t: 'in', label: 'Money added', note: t.note || '', amt: Number(t.amount) })),
+      ...b.data.filter((x) => x.d >= start).map((x) => ({ d: x.d, id: 'e' + x.id, t: 'out', label: x.category, note: [name(x.emp_id), x.note].filter(Boolean).join(' | '), amt: -Number(x.amount) }))]
+      .sort((p, q) => p.d.localeCompare(q.d) || String(p.id).localeCompare(String(q.id)))
+    let bal = 0; ev.forEach((e) => { bal += e.amt; e.bal = bal })
+    setLedger(ev.reverse())
   }
   const delTop = async (t) => { if (await askConfirm('Remove the ' + rs(t.amount) + ' you added on ' + dm(t.d) + '?')) { await supabase.from('shop_fund').delete().eq('id', t.id); loadFund() } }
   // Remember categories typed earlier
@@ -107,7 +119,16 @@ export default function Expenses({ back, go }) {
           <span>Shop fund (employees spend from this)<br /><span className="muted small">Every expense an employee logs is deducted</span></span>
           <b style={{ fontSize: 20, color: fund != null && fund < 0 ? 'var(--bad)' : undefined }}>{fund == null ? '-' : rs(fund)}</b>
         </div>
-        <button className="ghost sm" onClick={topUp}>+ Add money to fund</button>
+        <div style={{ display: 'flex', gap: 6 }}><button className="ghost sm" onClick={topUp}>+ Add money to fund</button><button className="ghost sm" onClick={openLedger}>{ledger ? 'Hide history' : 'Fund history'}</button></div>
+        {ledger && (
+          <div style={{ display: 'grid', gap: 5, marginTop: 4 }}>
+            {!ledger.length && <span className="muted small">No fund entries yet.</span>}
+            {ledger.slice(0, 80).map((e) => (
+              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 5 }}>
+                <span><b>{dm(e.d)}</b> {e.label}{e.note ? <span className="muted small"> | {e.note}</span> : ''}</span>
+                <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><b style={{ color: e.amt < 0 ? 'var(--bad)' : 'var(--good)' }}>{e.amt < 0 ? '-' : '+'}{rs(Math.abs(e.amt))}</b><br /><span className="muted small">bal {rs(e.bal)}</span></span>
+              </div>))}
+          </div>)}
         {tops.slice(0, 3).map((t) => <div key={t.id} className="muted small" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Added {dm(t.d)}</span><span>{rs(t.amount)} <button className="ghost sm" onClick={() => delTop(t)}>x</button></span></div>)}
       </div>
       {form && (

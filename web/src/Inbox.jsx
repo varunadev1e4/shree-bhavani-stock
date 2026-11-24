@@ -13,7 +13,7 @@ const inp = { className: 'fsel', style: { width: '100%', boxSizing: 'border-box'
 const when = (t) => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 const KIND = { low: 'Low stock', new: 'New product', issue: 'Shop problem' }
 
-export function useInboxCount() {
+export function useInboxCount(tick = 0) {
   const [n, setN] = useState(0)
   useEffect(() => {
     Promise.all([
@@ -21,7 +21,7 @@ export function useInboxCount() {
       supabase.from('staff_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
       supabase.from('field_returns').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     ]).then((r) => setN(r.reduce((s, x) => s + (x.error ? 0 : x.count || 0), 0))).catch(() => {})
-  }, [])
+  }, [tick])
   return n
 }
 

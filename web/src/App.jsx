@@ -35,6 +35,7 @@ const THEME_ICON = {
   dark: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" /></svg>,
   auto: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9" /><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></svg>,
 }
+const Bell = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0" /></svg>
 const Out = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
 
 function Login() {
@@ -75,7 +76,8 @@ function Home({ go }) {
   const [spin, setSpin] = useState(false)
   const [nRet, setNRet] = useState(0)
   const [nCol, setNCol] = useState(0)
-  const nInbox = useInboxCount()
+  const [tick, setTick] = useState(0)
+  const nInbox = useInboxCount(tick)
   useEffect(() => {
     supabase.from('temp_returns').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNRet(count || 0)).catch(() => {})
     supabase.from('temp_collections').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNCol(count || 0)).catch(() => {})
@@ -100,7 +102,7 @@ function Home({ go }) {
     } catch (e) { setErr(e.message) }
   }, [])
   // Refresh must skip the 2-minute shared cache, otherwise it just shows the same data again.
-  const refresh = async () => { setSpin(true); clearMem(); await load(); setTimeout(() => setSpin(false), 400) }
+  const refresh = async () => { setSpin(true); clearMem(); setTick((t) => t + 1); await load(); setTimeout(() => setSpin(false), 400) }
   useEffect(() => { load() }, [load])
   const h = new Date().getHours()
   const sync = backupAge(d && d.sync)
@@ -111,7 +113,7 @@ function Home({ go }) {
       <header className="top">
         <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">{APP}</h1>
           {d && <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>}</div>
-        <div className="actions"><button className="icon" onClick={cycleTheme} aria-label={'Theme: ' + theme} title={'Theme: ' + theme}>{THEME_ICON[theme]}</button><button className="icon" onClick={refresh} disabled={spin} aria-label="Refresh" style={spin ? { opacity: 0.5 } : undefined}>{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
+        <div className="actions"><button className="icon" onClick={() => go('inbox')} aria-label="Staff inbox" title="Staff inbox" style={{ position: 'relative' }}>{Bell}{nInbox > 0 && <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, background: 'var(--bad)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{nInbox > 99 ? '99+' : nInbox}</span>}</button><button className="icon" onClick={cycleTheme} aria-label={'Theme: ' + theme} title={'Theme: ' + theme}>{THEME_ICON[theme]}</button><button className="icon" onClick={refresh} disabled={spin} aria-label="Refresh" style={spin ? { opacity: 0.5 } : undefined}>{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
       </header>
       {err && <p className="error pad">{err}</p>}
       <section className="kpis">
@@ -123,7 +125,7 @@ function Home({ go }) {
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('ret')}>Temp returns{nRet > 0 ? ' (' + nRet + ' to enter)' : ''}</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('col')}>Collections{nCol > 0 ? ' (' + nCol + ' to enter)' : ''}</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('bill')}>Share a bill</button>
-        <button className="ghost" style={{ margin: 0 }} onClick={() => go('staff')}>Staff{nInbox > 0 ? ' (' + nInbox + ' new)' : ''}</button>
+        <button className="ghost" style={{ margin: 0 }} onClick={() => go('att')}>Mark attendance</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('exp')}>Expenses</button>
       </div>
       {d && d.day && (
@@ -366,15 +368,15 @@ function Shell() {
   }, [])
   const go = (t, side) => { if (side) setPs(side); if (t === 'expiry') { setSx('expiry'); t = 'stock' } else if (t === 'stock') setSx('stock'); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
+  const view = { home: <Home go={go} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('home')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 21</div>
+      <div className="ver">Build 22</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['parties', 'Parties'], ['insights', 'Insights'], ['staff', 'Staff']].map(([k, l]) => (
-          <button key={k} className={tab === k || (k === 'staff' && ['att', 'inbox'].includes(tab)) ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
+          <button key={k} className={tab === k || (k === 'staff' && tab === 'att') ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
         ))}
       </nav>
     </>
