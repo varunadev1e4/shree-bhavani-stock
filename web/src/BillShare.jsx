@@ -52,7 +52,7 @@ const DAYS = [[1, 'Today'], [7, 'Last 7 days'], [30, 'Last 30 days']]
 
 // Newest bills first, each with its own Share PDF button
 function RecentBills({ onOpen }) {
-  const [days, setDays] = useState(7)
+  const [days, setDays] = useState(1)
   const [rows, setRows] = useState(null)
   const [state, setState] = useState({})
   const cache = useRef(new Map())
