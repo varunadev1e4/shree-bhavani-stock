@@ -15,7 +15,6 @@ import StaffStats from './StaffStats'
 import Inbox, { useInboxCount } from './Inbox'
 import WeeklySummary from './WeeklySummary'
 import { BUILD } from './version'
-import { getSkin, applySkin, nextSkin } from './skin'
 import About from './About'
 import { nameOf } from './me'
 import { useBackLayer } from './backstack'
@@ -118,7 +117,6 @@ function Home({ go, nInbox = 0 }) {
           </div>
       </header>
       {err && <p className="error pad">{err}</p>}
-      {d && d.day && <div className="bl-hero"><div className="bl-ring" style={{ '--p': d.day.S.a > 0 ? Math.min(100, Math.round((d.day.RS.a / d.day.S.a) * 100)) : 0 }}><i>{d.day.S.a > 0 ? Math.min(100, Math.round((d.day.RS.a / d.day.S.a) * 100)) : 0}%</i></div><div><small>Collected on {new Date(d.day.dy).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</small><div className="big">{rs(d.day.RS.a)}</div><small>of {rs(d.day.S.a)} billed, {d.day.S.n} bills</small></div></div>}
       <section className="kpis">
         {K ? K.map(([c, l, v, s, t]) => <button key={l} className={'kpi ' + c} onClick={() => go(t, c === 'k1' ? 'recv' : c === 'k2' ? 'pay' : undefined)}><span>{l}</span><b>{v}</b><small>{s}</small></button>)
           : [0, 1, 2, 3].map((i) => <div key={i} className="kpi sk" />)}
@@ -215,7 +213,6 @@ function Card({ p, open, onToggle }) {
         </div>
         <div className="qty"><b>{num(q)}</b><small>{q <= 0 ? 'out' : 'units'}</small></div>
       </button>
-      {q > 0 && <div className={'bl-cav ' + s}>{Array.from({ length: 14 }, (_, i) => <i key={i} className={i >= Math.min(14, Math.max(1, Math.round(Math.log2(q + 1) * 1.4))) ? 'e' : ''} />)}</div>}
       {open && <Batches p={p} />}
     </li>
   )
@@ -362,7 +359,6 @@ function Shell() {
   const [menu, setMenu] = useState(false)
   const [syncRow, setSyncRow] = useState(null)
   const [theme, setThemeState] = useState(getTheme())
-  const [skin, setSkinState] = useState(getSkin())
   const nInbox = useInboxCount(rev)
   const cycleTheme = () => { const n = nextTheme(theme); setTheme(n); setThemeState(n) }
   // Refresh skips the 2-minute shared cache, otherwise it would show the same data again
@@ -412,7 +408,6 @@ function Shell() {
             <div className="topfix-menu">
               <button type="button" onClick={() => { cycleTheme(); setMenu(false) }}>Theme: {theme}</button>
               <button type="button" onClick={() => { refreshAll(); setMenu(false) }}>Refresh data</button>
-              <button type="button" onClick={() => { const n = nextSkin(skin); applySkin(n); setSkinState(n); setMenu(false) }}>Look: {skin === 'blister' ? 'Blister' : 'Classic'}</button>
               <button type="button" onClick={() => { setMenu(false); go('about') }}>About</button>
               <button type="button" onClick={() => { setMenu(false); supabase.auth.signOut() }}>Sign out</button>
             </div>

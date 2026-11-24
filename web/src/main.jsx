@@ -3,12 +3,9 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { DialogHost } from './dialog'
 import './styles.css'
-import './skin-blister.css'
-import { applySkin } from './skin'
 import { installBack } from './backstack'
 
 installBack()  // the phone's Back button closes screens inside the app instead of leaving it
-applySkin()  // the look chosen on this device (Blister by default); Menu > Look switches it
 
 // A shop with its own name (set VITE_APP_NAME / VITE_SHOP_NAME in Vercel) gets its own install name.
 const NAME = import.meta.env.VITE_APP_NAME

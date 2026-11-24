@@ -140,3 +140,7 @@ button,input,select { font:inherit; color:inherit; } button { cursor:pointer; } 
 .topfix-sub { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); margin-top:1px; }
 .topfix-sub .dot { width:7px; height:7px; border-radius:50%; background:var(--muted); display:inline-block; }
 .topfix-sub .dot.good { background:#16a34a; } .topfix-sub .dot.warn { background:#d97706; } .topfix-sub .dot.bad { background:#dc2626; }
+
+/* dark mode: the bottom menu bar is lighter than the page so it stands out */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tabs { background:#222d3a; border-top-color:#3a4a5c; } }
+:root[data-theme="dark"] .tabs { background:#222d3a; border-top-color:#3a4a5c; }
