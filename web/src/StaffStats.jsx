@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
-import { rs } from './util'
+import { rs, fetchPaged } from './util'
 import ExportBar from './Export'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { calc, inMonth } from './staffcalc'
@@ -8,6 +8,7 @@ import { span, money } from './expcommon'
 
 // Owner's employee analytics for one month: who delivered most, who spent most, leave, tasks, reports and counting.
 const rows = async (q) => { const r = await q; return r.error ? [] : r.data }
+const all = (t, c, f) => fetchPaged(t, c, f).catch(() => [])
 const sumBy = (list, key, val) => { const m = new Map(); list.forEach((x) => m.set(x[key], (m.get(x[key]) || 0) + (val ? Number(x[val]) : 1))); return m }
 
 export default function StaffStats({ back }) {
@@ -19,13 +20,13 @@ export default function StaffStats({ back }) {
       const s = span(ym), t1 = s.from + 'T00:00:00', t2 = s.to + 'T23:59:59'
       const [emps, ents, tags, exps, tasks, reps, rets, cnt] = await Promise.all([
         rows(supabase.from('employees').select('*').order('name')),
-        rows(supabase.from('emp_entries').select('*')),
-        rows(supabase.from('bill_tags').select('emp_id,bill_no').gte('d', s.from).lte('d', s.to).limit(5000)),
-        rows(supabase.from('expenses').select('emp_id,amount,category').not('emp_id', 'is', null).gte('d', s.from).lte('d', s.to).limit(5000)),
-        rows(supabase.from('emp_tasks').select('done_by').eq('done', true).gte('done_at', t1).lte('done_at', t2).limit(5000)),
-        rows(supabase.from('staff_reports').select('emp_id').gte('created_at', t1).lte('created_at', t2).limit(5000)),
-        rows(supabase.from('field_returns').select('emp_id').gte('created_at', t1).lte('created_at', t2).limit(5000)),
-        rows(supabase.from('count_items').select('counted_by').not('counted_by', 'is', null).gte('counted_at', t1).lte('counted_at', t2).limit(5000)),
+        all('emp_entries', '*'),
+        all('bill_tags', 'emp_id,bill_no', (q) => q.gte('d', s.from).lte('d', s.to)),
+        all('expenses', 'emp_id,amount,category', (q) => q.not('emp_id', 'is', null).gte('d', s.from).lte('d', s.to)),
+        all('emp_tasks', 'done_by', (q) => q.eq('done', true).gte('done_at', t1).lte('done_at', t2)),
+        all('staff_reports', 'emp_id', (q) => q.gte('created_at', t1).lte('created_at', t2)),
+        all('field_returns', 'emp_id', (q) => q.gte('created_at', t1).lte('created_at', t2)),
+        all('count_items', 'counted_by', (q) => q.not('counted_by', 'is', null).gte('counted_at', t1).lte('counted_at', t2)),
       ])
       const nos = [...new Set(tags.map((t) => t.bill_no))], heads = {}
       for (let i = 0; i < nos.length; i += 100) {

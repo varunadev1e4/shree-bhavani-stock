@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
-import { rs } from './util'
+import { rs, fetchPaged } from './util'
 import { askConfirm, showMsg } from './dialog'
 import { iso, dm } from './expcommon'
 
@@ -216,8 +216,8 @@ function CountLines({ count, back, onChange }) {
   const [vals, setVals] = useState({})
   const [busy, setBusy] = useState(0)
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('count_items').select('*').eq('count_id', count.id).order('product').order('id').limit(1000)
-    if (error) return showMsg(error.message)
+    let data
+    try { data = (await fetchPaged('count_items', '*', (q) => q.eq('count_id', count.id))).sort((x, y) => String(x.product).localeCompare(String(y.product)) || x.id - y.id) } catch (error) { return showMsg(error.message) }
     setItems(data); onChange && onChange()
   }, [count.id, onChange])
   useEffect(() => { load() }, [load])

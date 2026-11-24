@@ -25,6 +25,9 @@ async function rawFetchAll(table, cols, filter) {
   return all
 }
 
+// Reads EVERY row of a table, 1000 at a time. The server never returns more than 1000 rows in one request, so a plain .select() or .limit(5000) quietly stops at 1000. Use this for anything that can grow.
+export const fetchPaged = rawFetchAll
+
 export const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h }
 export const ini = (s) => String(s).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'
 

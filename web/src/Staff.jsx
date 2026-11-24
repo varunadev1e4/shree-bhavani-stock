@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
-import { rs, num, waLink, SHOP } from './util'
+import { rs, num, waLink, SHOP, fetchPaged } from './util'
 import { exportPdf } from './exporter'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { calc, inMonth, daysIn, leaveBalance } from './staffcalc'
@@ -142,9 +142,10 @@ export default function Staff({ back, go }) {
   const [expTot, setExpTot] = useState(null)
 
   const reload = useCallback(async () => {
-    const [a, b] = await Promise.all([supabase.from('employees').select('*').order('name'), supabase.from('emp_entries').select('*').order('d')])
-    if (a.error || b.error) { setErr((a.error || b.error).message + ' (run migration-10.sql in Supabase)'); setEmps([]); return }
-    setErr(''); setEmps(a.data); setAll(b.data)
+    let a, b
+    try { [a, b] = await Promise.all([supabase.from('employees').select('*').order('name'), fetchPaged('emp_entries', '*')]) } catch (e) { setErr(e.message + ' (run migration-10.sql in Supabase)'); setEmps([]); return }
+    if (a.error) { setErr(a.error.message + ' (run migration-10.sql in Supabase)'); setEmps([]); return }
+    setErr(''); setEmps(a.data); setAll(b.sort((x, y) => String(x.d).localeCompare(String(y.d))))
     const r = await supabase.from('app_roles').select('email,emp_id').eq('role', 'staff')
     if (!r.error) setLogins(Object.fromEntries(r.data.filter((x) => x.emp_id).map((x) => [x.emp_id, x.email])))
   }, [])
@@ -152,11 +153,10 @@ export default function Staff({ back, go }) {
   useEffect(() => {
     const y = Math.floor(ym / 100), m = ym % 100, from = y + '-' + String(m).padStart(2, '0') + '-01', to = y + '-' + String(m).padStart(2, '0') + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0')
     setExpTot(null)
-    supabase.from('expenses').select('amount,emp_id').gte('d', from).lte('d', to).limit(5000).then(({ data, error }) => {
-      if (error) return
+    fetchPaged('expenses', 'amount,emp_id', (q) => q.gte('d', from).lte('d', to)).then((data) => {
       const all = data.reduce((t, x) => t + Number(x.amount), 0), staff = data.filter((x) => x.emp_id).reduce((t, x) => t + Number(x.amount), 0)
       setExpTot({ all, staff })
-    })
+    }).catch(() => {})
   }, [ym])
 
   const saveEmp = async (f) => {

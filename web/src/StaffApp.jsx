@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import { rs, APP, SHOP } from './util'
+import { rs, APP, SHOP, fetchPaged } from './util'
 import { Mark } from './Logo'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { askConfirm, showMsg } from './dialog'
@@ -8,6 +8,7 @@ import { inMonth, leaveBalance } from './staffcalc'
 import AttCalendar from './AttCalendar'
 import { STAFF_CATS, iso, dm, span } from './expcommon'
 import { Tasks, TagBill, Report, ReturnNote, RequestMoney, CountSheets } from './StaffTools'
+import { BUILD } from './version'
 import { pushSupported, pushOn, enablePush } from './push'
 
 // The only screen an employee login can open. The database enforces this: an employee login cannot read
@@ -117,8 +118,8 @@ export default function StaffApp({ session, empId }) {
   const load = useCallback(async () => {
     const [a, b, e, f, t, c] = await Promise.all([
       supabase.from('employees').select('*').eq('id', empId).limit(1),
-      supabase.from('expenses').select('*').order('d', { ascending: false }).order('id', { ascending: false }),
-      supabase.from('emp_entries').select('*').order('d'),
+      fetchPaged('expenses', '*').then((data) => ({ data: data.sort((x, y) => String(y.d).localeCompare(String(x.d)) || y.id - x.id) })).catch((error) => ({ error })),
+      fetchPaged('emp_entries', '*').then((data) => ({ data: data.sort((x, y) => String(x.d).localeCompare(String(y.d))) })).catch((error) => ({ error })),
       supabase.rpc('fund_balance'),
       supabase.from('emp_tasks').select('id').eq('done', false),
       supabase.from('counts').select('id').eq('status', 'open'),
@@ -170,6 +171,7 @@ export default function StaffApp({ session, empId }) {
           </div>
           {push === 'ask' && <button className="ghost" style={{ marginTop: 12 }} onClick={turnOn}>Turn on notifications</button>}
           {push === 'on' && <p className="muted small" style={{ marginTop: 12 }}>Notifications are on for this phone.</p>}
+          <p className="muted small" style={{ marginTop: 6 }}>Version {BUILD}</p>
         </>)}
       {emp && tab !== 'home' && (
         <>

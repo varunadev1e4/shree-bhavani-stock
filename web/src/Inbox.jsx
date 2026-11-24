@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
-import { rs, fetchAll, waLink, SHOP } from './util'
+import { rs, fetchAll, fetchPaged, waLink, SHOP } from './util'
 import ExportBar from './Export'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { askConfirm, askPrompt, showMsg } from './dialog'
@@ -224,7 +224,7 @@ function CountResult({ count, back, reload }) {
   const [names, setNames] = useState({})
   useEffect(() => {
     (async () => {
-      const [a, b, c] = await Promise.all([supabase.from('count_items').select('*').eq('count_id', count.id).order('product').limit(2000), supabase.from('count_expected').select('item_id,qty').limit(5000), supabase.from('employees').select('id,name')])
+      const [a, b, c] = await Promise.all([fetchPaged('count_items', '*', (q) => q.eq('count_id', count.id)).then((data) => ({ data: data.sort((x, y) => String(x.product).localeCompare(String(y.product))) })).catch((error) => ({ error })), fetchPaged('count_expected', 'item_id,qty').then((data) => ({ data })).catch(() => ({ data: [] })), supabase.from('employees').select('id,name')])
       if (a.error) return showMsg(a.error.message)
       setItems(a.data); setExp(Object.fromEntries((b.data || []).map((x) => [x.item_id, Number(x.qty)]))); setNames(Object.fromEntries((c.data || []).map((x) => [x.id, x.name])))
     })()
@@ -354,7 +354,7 @@ function Deliveries() {
     setTags(null)
     ;(async () => {
       const s = span(ym)
-      const [a, e] = await Promise.all([supabase.from('bill_tags').select('*').gte('d', s.from).lte('d', s.to).order('d', { ascending: false }).order('id', { ascending: false }).limit(2000), supabase.from('employees').select('id,name')])
+      const [a, e] = await Promise.all([fetchPaged('bill_tags', '*', (q) => q.gte('d', s.from).lte('d', s.to)).then((data) => ({ data: data.sort((x, y) => String(y.d).localeCompare(String(x.d)) || y.id - x.id) })).catch((error) => ({ error })), supabase.from('employees').select('id,name')])
       if (a.error) { showMsg(a.error.message + ' (run migration-25.sql)'); return setTags([]) }
       setTags(a.data); setEmps(e.data || [])
       const nos = [...new Set(a.data.map((t) => t.bill_no))], h = {}

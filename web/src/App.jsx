@@ -14,6 +14,7 @@ import Attendance from './Attendance'
 import StaffStats from './StaffStats'
 import Inbox, { useInboxCount } from './Inbox'
 import WeeklySummary from './WeeklySummary'
+import { BUILD } from './version'
 import { ActivityPage } from './ActivityLog'
 import { getRole } from './role'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
@@ -102,14 +103,13 @@ function Home({ go, nInbox = 0 }) {
   }, [])
   useEffect(() => { load() }, [load])
   const h = new Date().getHours()
-  const sync = backupAge(d && d.sync)
   const K = d && [['k1', 'To receive', rs(d.recv), d.nCust + ' parties', 'parties'], ['k2', 'To pay', rs(d.pay), d.nPay + ' parties', 'parties'],
     ['k3', 'Items in stock', num(d.items), 'tap to browse', 'stock'], ['k4', 'Expiring soon', num(d.soon), 'within 3 months', 'expiry']]
   return (
     <div className="app">
       <header className="top">
         <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">{APP}</h1>
-          {d && <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>}</div>
+          </div>
       </header>
       {err && <p className="error pad">{err}</p>}
       <section className="kpis">
@@ -294,13 +294,12 @@ function Stock() {
     return list.sort(by[sort])
   }, [base, company, sort])
 
-  const sync = backupAge(synced)
   const QC = [['instock', 'In stock', stats.instock, ''], ['soon', 'Expiring', stats.soon, 'warn'], ['expired', 'Expired', stats.expired, 'bad'], ['out', 'Out of stock', stats.out, '']]
 
   return (
     <div className="app">
       <header className="top">
-        <div><h1 className="h1">Stock</h1><div className={'syncpill ' + sync.cls}><i />{sync.text}</div></div>
+        <div><h1 className="h1">Stock</h1></div>
       </header>
       <div className="tools">
         <div className="searchbox">
@@ -353,6 +352,7 @@ function Shell() {
   const [sx, setSx] = useState('stock')
   const [stale, setStale] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [syncRow, setSyncRow] = useState(null)
   const [theme, setThemeState] = useState(getTheme())
   const nInbox = useInboxCount(rev)
   const cycleTheme = () => { const n = nextTheme(theme); setTheme(n); setThemeState(n) }
@@ -367,6 +367,7 @@ function Shell() {
       try {
         const { data } = await supabase.from('sync_log').select('ran_at,source').order('ran_at', { ascending: false }).limit(1)
         const row = data && data[0], v = row ? (row.source === 'live' ? row.ran_at : row.source) : null
+        setSyncRow(row || null)
         if (known && v && v !== known) bump()
         if (v) known = v
       } catch (e) { /* offline */ }
@@ -386,7 +387,8 @@ function Shell() {
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div className="topfix">
         <div className="topfix-in">
-          <b className="topfix-name">{APP}</b>
+          <div><b className="topfix-name">{APP}</b>
+            <div className="topfix-sub"><i className={'dot ' + backupAge(syncRow).cls} />{syncRow ? backupAge(syncRow).text : 'Checking data...'} | v{BUILD}</div></div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="icon" onClick={() => { setMenu(false); go('inbox') }} aria-label="Staff inbox" title="Staff inbox" style={{ position: 'relative' }}>{Bell}{nInbox > 0 && <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, background: 'var(--bad)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{nInbox > 99 ? '99+' : nInbox}</span>}</button>
             <button className="icon" onClick={() => setMenu((m) => !m)} aria-label="Menu" title="Menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg></button>
@@ -404,7 +406,6 @@ function Shell() {
       </div>
       <div className="topfix-space" />
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 28</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['parties', 'Parties'], ['insights', 'Insights'], ['staff', 'Staff']].map(([k, l]) => (
           <button key={k} className={tab === k || (k === 'staff' && (tab === 'att' || tab === 'stats')) ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>

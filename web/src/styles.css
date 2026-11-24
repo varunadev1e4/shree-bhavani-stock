@@ -136,3 +136,7 @@ button,input,select { font:inherit; color:inherit; } button { cursor:pointer; } 
 .topfix-menu button { text-align:left; padding:12px 14px; border:0; border-radius:10px; background:transparent; color:var(--text); font:inherit; font-weight:600; cursor:pointer; }
 .topfix-menu button:hover { background:var(--accent-soft); }
 .top { padding-top:12px; }
+
+.topfix-sub { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); margin-top:1px; }
+.topfix-sub .dot { width:7px; height:7px; border-radius:50%; background:var(--muted); display:inline-block; }
+.topfix-sub .dot.good { background:#16a34a; } .topfix-sub .dot.warn { background:#d97706; } .topfix-sub .dot.bad { background:#dc2626; }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
-import { rs } from './util'
+import { rs, fetchPaged } from './util'
 import ExportBar from './Export'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { askConfirm, askPrompt, showMsg } from './dialog'
@@ -57,7 +57,7 @@ export default function Expenses({ back, go }) {
   }
   const openLedger = async () => {
     if (ledger) return setLedger(null)
-    const [a, b] = await Promise.all([supabase.from('shop_fund').select('*').order('d').order('id'), supabase.from('expenses').select('*').not('emp_id', 'is', null).order('d').order('id')])
+    const [a, b] = await Promise.all([fetchPaged('shop_fund', '*').then((data) => ({ data: data.sort((x, y) => String(x.d).localeCompare(String(y.d)) || x.id - y.id) })).catch((error) => ({ error })), fetchPaged('expenses', '*', (q) => q.not('emp_id', 'is', null)).then((data) => ({ data: data.sort((x, y) => String(x.d).localeCompare(String(y.d)) || x.id - y.id) })).catch((error) => ({ error }))])
     if (a.error || b.error) return showMsg((a.error || b.error).message)
     const start = a.data.length ? a.data[0].d : '9999'
     const ev = [...a.data.map((t) => ({ d: t.d, id: 'f' + t.id, t: 'in', label: 'Money added', note: t.note || '', amt: Number(t.amount) })),
