@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useBackLayer } from './backstack'
 import { findBills, billExtra, billBlob, totals, recentBills } from './billcopy'
 import { deliver } from './exporter'
 import { rs, num, waLink, SHOP } from './util'
@@ -153,6 +154,7 @@ export default function BillShare({ back }) {
 // Small button to put next to any bill number. Opens the bill copy over the current screen.
 export function BillBtn({ no, date, party, label = 'Bill copy' }) {
   const [open, setOpen] = useState(false)
+  useBackLayer(open, () => setOpen(false))
   if (!no) return null
   return (
     <>

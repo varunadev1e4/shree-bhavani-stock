@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useBackLayer } from './backstack'
 import { supabase } from './supabase'
 import { rs, APP, SHOP, fetchPaged } from './util'
 import { Mark } from './Logo'
@@ -104,6 +105,7 @@ const ICON = Object.fromEntries(TILES.map((t) => [t[0], t[4]]))
 
 export default function StaffApp({ session, empId }) {
   const [tab, setTab] = useState('home')
+  useBackLayer(tab !== 'home', () => { setTab('home') })
   const [emp, setEmp] = useState(null)
   const [exps, setExps] = useState([])
   const [ents, setEnts] = useState([])

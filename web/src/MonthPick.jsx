@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useBackLayer } from './backstack'
 
 const NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -9,6 +10,7 @@ const step = (ym, n) => { const t = Math.floor(ym / 100) * 12 + (ym % 100 - 1) +
 // Month chooser: arrows for next/previous month, tap the name to jump to any month of any year.
 export default function MonthPick({ ym, onChange }) {
   const [open, setOpen] = useState(false)
+  useBackLayer(open, () => setOpen(false))
   const [yr, setYr] = useState(Math.floor(ym / 100))
   const now = curYm(), nowY = Math.floor(now / 100)
   const arrow = { width: 40, height: 40, border: 0, borderRadius: 12, background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 22, fontWeight: 700 }

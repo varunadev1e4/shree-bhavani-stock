@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useBackLayer } from './backstack'
 import { supabase } from './supabase'
 import { rs, fetchPaged } from './util'
 import { askConfirm, showMsg } from './dialog'
@@ -252,6 +253,7 @@ function CountLines({ count, back, onChange }) {
 export function CountSheets({ onChange }) {
   const [sheets, setSheets] = useState(null)
   const [cur, setCur] = useState(null)
+  useBackLayer(!!cur, () => setCur(null))
   useEffect(() => { supabase.from('counts').select('*').eq('status', 'open').order('id', { ascending: false }).then(({ data, error }) => { if (error) showMsg(error.message + ' (owner: run migration-25.sql)'); setSheets(data || []) }) }, [])
   if (cur) return <CountLines count={cur} back={() => setCur(null)} onChange={onChange} />
   if (!sheets) return <p className="muted pad">Loading...</p>

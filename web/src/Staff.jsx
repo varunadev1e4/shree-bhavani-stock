@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useBackLayer } from './backstack'
 import { supabase } from './supabase'
 import { rs, num, waLink, SHOP, fetchPaged } from './util'
 import { exportPdf } from './exporter'
@@ -136,6 +137,8 @@ export default function Staff({ back, go }) {
   const [ym, setYm] = useState(curYm())
   const [sel, setSel] = useState(null)
   const [form, setForm] = useState(null)
+  useBackLayer(!!sel, () => setSel(null))
+  useBackLayer(!!form, () => setForm(null))
   const [showOld, setShowOld] = useState(false)
   const [err, setErr] = useState('')
   const [logins, setLogins] = useState({})

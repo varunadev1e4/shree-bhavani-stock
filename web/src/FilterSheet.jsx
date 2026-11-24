@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useBackLayer } from './backstack'
 
 // Filters live in a slide-up sheet so the report itself gets the screen.
 // <FilterBar summary="This month | by Customer" count={2} onOpen={...} /> sits above the results; <FilterSheet> holds the controls.
@@ -17,6 +18,7 @@ export function FilterBar({ summary, count, onOpen }) {
 export function Sec({ title, children }) { return <><div className="fsec">{title}</div>{children}</> }
 
 export default function FilterSheet({ open, onClose, onReset, title = 'Filters', children }) {
+  useBackLayer(open, onClose)
   useEffect(() => {
     if (!open) return
     const k = (e) => { if (e.key === 'Escape') onClose() }

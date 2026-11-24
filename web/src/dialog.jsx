@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useBackLayer } from './backstack'
 
 // In-app replacements for the browser's confirm / prompt / alert boxes.
 //   if (await askConfirm('Delete this?', { ok: 'Delete', danger: true })) ...
@@ -21,6 +22,8 @@ export function DialogHost() {
     return () => { push = null }
   })
   useEffect(() => { while (queue.length) pending.current.push(queue.shift()); if (!cur && pending.current.length) next() }, [cur])
+  // Phone Back = Cancel
+  useBackLayer(!!cur, () => { if (!cur) return; cur.resolve(cur.kind === 'prompt' ? null : cur.kind === 'alert' ? undefined : false); next() })
   if (!cur) return null
   const done = (v) => { cur.resolve(v); next() }
   const isP = cur.kind === 'prompt', isA = cur.kind === 'alert'

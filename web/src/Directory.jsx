@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useBackLayer } from './backstack'
 import { supabase } from './supabase'
 import { fetchAll, waLink, SHOP } from './util'
 import ExportBar from './Export'
@@ -42,6 +43,7 @@ export default function Directory() {
   const [people, setPeople] = useState([])
   const [open, setOpen] = useState(null)
   const [form, setForm] = useState(null)   // { type: 'entity'|'person', data }
+  useBackLayer(!!form, () => setForm(null))
   const [parties, setParties] = useState(null)
   const [err, setErr] = useState('')
 

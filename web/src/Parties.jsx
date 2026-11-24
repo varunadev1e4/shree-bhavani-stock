@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useBackLayer } from './backstack'
 import { fetchAll, rs, waLink, SHOP } from './util'
 import Customer from './Customer'
 import PartyStatement from './PartyStatement'
@@ -32,6 +33,7 @@ export default function Parties({ side: sideProp }) {
   const [sort, setSort] = useState('bal')
   const [open, setOpen] = useState(null)
   const [sel, setSel] = useState(null)
+  useBackLayer(!!sel, () => setSel(null))
   const [stm, setStm] = useState(null)
   const [view, setView] = useState('dues')
   const [preset, setPreset] = useState('all')

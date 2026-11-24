@@ -18,6 +18,7 @@ import { BUILD } from './version'
 import { getSkin, applySkin, nextSkin } from './skin'
 import About from './About'
 import { nameOf } from './me'
+import { useBackLayer } from './backstack'
 import { ActivityPage } from './ActivityLog'
 import { getRole } from './role'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
@@ -387,6 +388,9 @@ function Shell() {
     document.addEventListener('visibilitychange', vis); window.addEventListener('sb-stale', st)
     return () => { clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('sb-stale', st) }
   }, [])
+  // Phone Back: close the menu first, then go up one level (attendance and analytics go back to Staff, everything else to Home)
+  useBackLayer(menu, () => setMenu(false))
+  useBackLayer(tab !== 'home', () => go(tab === 'att' || tab === 'stats' ? 'staff' : 'home'))
   const go = (t, side) => { if (side) setPs(side); if (t === 'expiry') { setSx('expiry'); t = 'stock' } else if (t === 'stock') setSx('stock'); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
   const view = { home: <Home go={go} nInbox={nInbox} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('home')} />, act: <ActivityPage back={() => go('home')} />, week: <WeeklySummary back={() => go('home')} />, about: <About back={() => go('home')} />, stats: <StaffStats back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
