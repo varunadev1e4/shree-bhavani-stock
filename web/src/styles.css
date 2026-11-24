@@ -21,7 +21,7 @@ button,input,select { font:inherit; color:inherit; } button { cursor:pointer; } 
 .kpi span { font-size:13px; font-weight:600; opacity:.9; } .kpi b { font-size:25px; font-weight:800; margin-top:auto; letter-spacing:-.02em; } .kpi small { font-size:12px; opacity:.85; }
 .kpi::after { content:""; position:absolute; right:-24px; top:-24px; width:90px; height:90px; border-radius:50%; background:rgba(255,255,255,.14); }
 .k1 { background:linear-gradient(135deg,#059669,#34d399); } .k2 { background:linear-gradient(135deg,#ea580c,#fbbf24); } .k3 { background:linear-gradient(135deg,#4f46e5,#818cf8); } .k4 { background:linear-gradient(135deg,#e11d48,#fb7185); }
-.tools { position:sticky; top:0; z-index:5; margin:0 -16px; padding:8px 16px 8px; background:color-mix(in srgb,var(--bg) 90%,transparent); backdrop-filter:blur(12px); }
+.tools { position:sticky; top:calc(56px + env(safe-area-inset-top)); z-index:5; margin:0 -16px; padding:8px 16px 8px; background:color-mix(in srgb,var(--bg) 90%,transparent); backdrop-filter:blur(12px); }
 .searchbox { display:flex; align-items:center; gap:8px; background:var(--card); border:1.5px solid transparent; border-radius:18px; padding:0 14px; box-shadow:var(--shadow); }
 .searchbox:focus-within { border-color:var(--accent); } .searchbox svg { color:var(--muted); flex:none; } .sp { margin:8px 0; }
 .searchbox input { flex:1; border:0; background:none; outline:0; padding:15px 0; font-size:16px; min-width:0; }
@@ -125,3 +125,14 @@ button,input,select { font:inherit; color:inherit; } button { cursor:pointer; } 
 .igroups { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:4px; border-radius:16px; background:var(--line); margin-top:10px; }
 .igroups button { border:0; background:none; padding:10px 2px; border-radius:12px; font-weight:700; font-size:13px; line-height:1.2; color:var(--muted); }
 .igroups button.on { background:var(--card); color:var(--accent); box-shadow:var(--shadow); }
+
+/* Fixed top bar: the bell and menu stay reachable on every screen */
+.topfix { position:fixed; top:0; left:0; right:0; z-index:24; background:var(--bg); border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top); }
+.topfix-in { max-width:720px; margin:0 auto; padding:7px 16px; display:flex; justify-content:space-between; align-items:center; }
+.topfix-name { font-size:16px; font-weight:800; letter-spacing:-.01em; }
+.topfix-space { height:calc(56px + env(safe-area-inset-top)); }
+.topfix-back { position:fixed; inset:0; z-index:-1; }
+.topfix-menu { position:absolute; top:calc(100% + 4px); right:max(16px, calc(50% - 344px)); min-width:180px; display:grid; gap:2px; padding:6px; border-radius:14px; background:var(--card); box-shadow:0 10px 30px rgba(0,0,0,.28); border:1px solid var(--line); }
+.topfix-menu button { text-align:left; padding:12px 14px; border:0; border-radius:10px; background:transparent; color:var(--text); font:inherit; font-weight:600; cursor:pointer; }
+.topfix-menu button:hover { background:var(--accent-soft); }
+.top { padding-top:12px; }

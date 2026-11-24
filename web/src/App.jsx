@@ -73,22 +73,16 @@ function daily(rows) {
   return { dy, S: at('S'), RS: at('RS'), P: at('P'), spark: days.slice(-14).map((d) => at('S', d).a) }
 }
 
-function Home({ go }) {
+function Home({ go, nInbox = 0 }) {
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
-  const [spin, setSpin] = useState(false)
   const [nCol, setNCol] = useState(0)
   const [nTmp, setNTmp] = useState(0)
-  const [menu, setMenu] = useState(false)
   const [more, setMore] = useState(false)
-  const [tick, setTick] = useState(0)
-  const nInbox = useInboxCount(tick)
   useEffect(() => {
     supabase.from('temp_collections').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNCol(count || 0)).catch(() => {})
     supabase.from('temp_bills').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNTmp(count || 0)).catch(() => {})
   }, [])
-  const [theme, setThemeState] = useState(getTheme())
-  const cycleTheme = () => { const n = nextTheme(theme); setTheme(n); setThemeState(n) }
   const load = useCallback(async () => {
     try {
       const [pr, st, lg, dl] = await Promise.all([
@@ -106,8 +100,6 @@ function Home({ go }) {
       setErr('')
     } catch (e) { setErr(e.message) }
   }, [])
-  // Refresh must skip the 2-minute shared cache, otherwise it just shows the same data again.
-  const refresh = async () => { setSpin(true); clearMem(); setTick((t) => t + 1); await load(); setTimeout(() => setSpin(false), 400) }
   useEffect(() => { load() }, [load])
   const h = new Date().getHours()
   const sync = backupAge(d && d.sync)
@@ -118,15 +110,6 @@ function Home({ go }) {
       <header className="top">
         <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">{APP}</h1>
           {d && <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>}</div>
-        <div className="actions" style={{ position: 'relative' }}><button className="icon" onClick={() => go('inbox')} aria-label="Staff inbox" title="Staff inbox" style={{ position: 'relative' }}>{Bell}{nInbox > 0 && <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, background: 'var(--bad)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{nInbox > 99 ? '99+' : nInbox}</span>}</button>
-          <button className="icon" onClick={() => setMenu(!menu)} aria-label="Menu" title="Menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg></button>
-          {menu && <>
-            <div onClick={() => setMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 20 }} />
-            <div className="chartcard" style={{ position: 'absolute', right: 0, top: 44, zIndex: 21, minWidth: 170, display: 'grid', gap: 4, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
-              <button className="ghost sm" style={{ textAlign: 'left' }} onClick={() => { cycleTheme(); setMenu(false) }}>Theme: {theme}</button>
-              <button className="ghost sm" style={{ textAlign: 'left' }} disabled={spin} onClick={() => { refresh(); setMenu(false) }}>Refresh data</button>
-              <button className="ghost sm" style={{ textAlign: 'left' }} onClick={() => supabase.auth.signOut()}>Sign out</button>
-            </div></>}</div>
       </header>
       {err && <p className="error pad">{err}</p>}
       <section className="kpis">
@@ -370,6 +353,12 @@ function Shell() {
   const [rev, setRev] = useState(0)
   const [sx, setSx] = useState('stock')
   const [stale, setStale] = useState(false)
+  const [menu, setMenu] = useState(false)
+  const [theme, setThemeState] = useState(getTheme())
+  const nInbox = useInboxCount(rev)
+  const cycleTheme = () => { const n = nextTheme(theme); setTheme(n); setThemeState(n) }
+  // Refresh skips the 2-minute shared cache, otherwise it would show the same data again
+  const refreshAll = () => { clearMem(); setRev((r) => r + 1) }
   useEffect(() => { const f = () => setOff(!navigator.onLine); window.addEventListener('online', f); window.addEventListener('offline', f); return () => { window.removeEventListener('online', f); window.removeEventListener('offline', f) } }, [])
   // Reload the data when a newer backup has been synced (a tiny check first, to save data)
   useEffect(() => {
@@ -392,12 +381,31 @@ function Shell() {
   }, [])
   const go = (t, side) => { if (side) setPs(side); if (t === 'expiry') { setSx('expiry'); t = 'stock' } else if (t === 'stock') setSx('stock'); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('home')} />, act: <ActivityPage back={() => go('home')} />, week: <WeeklySummary back={() => go('home')} />, stats: <StaffStats back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
+  const view = { home: <Home go={go} nInbox={nInbox} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('home')} />, act: <ActivityPage back={() => go('home')} />, week: <WeeklySummary back={() => go('home')} />, stats: <StaffStats back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
+      <div className="topfix">
+        <div className="topfix-in">
+          <b className="topfix-name">{APP}</b>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="icon" onClick={() => { setMenu(false); go('inbox') }} aria-label="Staff inbox" title="Staff inbox" style={{ position: 'relative' }}>{Bell}{nInbox > 0 && <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, background: 'var(--bad)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{nInbox > 99 ? '99+' : nInbox}</span>}</button>
+            <button className="icon" onClick={() => setMenu((m) => !m)} aria-label="Menu" title="Menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg></button>
+          </div>
+        </div>
+        {menu && (
+          <>
+            <div className="topfix-back" onClick={() => setMenu(false)} />
+            <div className="topfix-menu">
+              <button type="button" onClick={() => { cycleTheme(); setMenu(false) }}>Theme: {theme}</button>
+              <button type="button" onClick={() => { refreshAll(); setMenu(false) }}>Refresh data</button>
+              <button type="button" onClick={() => { setMenu(false); supabase.auth.signOut() }}>Sign out</button>
+            </div>
+          </>)}
+      </div>
+      <div className="topfix-space" />
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 26</div>
+      <div className="ver">Build 27</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['parties', 'Parties'], ['insights', 'Insights'], ['staff', 'Staff']].map(([k, l]) => (
           <button key={k} className={tab === k || (k === 'staff' && (tab === 'att' || tab === 'stats')) ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
