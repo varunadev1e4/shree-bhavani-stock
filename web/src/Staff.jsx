@@ -97,7 +97,7 @@ function Detail({ emp, all, ym, setYm, reload, back, edit }) {
       {!emp.no_attendance && (
         <>
           <h2 className="h2" style={{ marginTop: 14 }}>Attendance calendar</h2>
-          <AttCalendar ym={ym} entries={all.filter((e) => e.emp_id === emp.id)} onPick={setDay} picked={day} />
+          <AttCalendar ym={ym} entries={all.filter((e) => e.emp_id === emp.id)} onPick={setDay} picked={day} join={emp.join_date} leave={emp.leave_date} />
           {day && (
             <div className="chartcard" style={{ marginTop: 8, display: 'grid', gap: 6 }}>
               <b>{dm(day)}</b>

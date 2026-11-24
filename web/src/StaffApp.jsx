@@ -75,7 +75,7 @@ function Attendance({ emp, entries }) {
   return (
     <>
       <MonthPick ym={ym} onChange={setYm} />
-      <AttCalendar ym={ym} entries={entries} />
+      <AttCalendar ym={ym} entries={entries} join={emp.join_date} leave={emp.leave_date} />
       <div className="minis" style={{ marginTop: 10 }}>
         <div className="mini"><span>Absent</span><b>{nA}</b></div>
         <div className="mini"><span>Half days</span><b>{nH}</b></div>
