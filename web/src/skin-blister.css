@@ -5,9 +5,9 @@
 html[data-skin="blister"] .bl-hero { display:flex; } html[data-skin="blister"] .bl-cav { display:flex; }
 html[data-skin="blister"] { --foil:0 1px 0 #cdd8de, 0 8px 20px rgba(11,31,42,.07); --chip:#e3ecef; --pillbg:#0B1F2A; --pillfg:#9bb0bb;
   --bg:#EEF4F6; --card:#ffffff; --text:#0B1F2A; --muted:#5b6f7b; --line:#e0e9ed; --accent:#0E8F86; --accent-soft:#dff3f1; --good:#16a34a; --warn:#d97706; --warn-soft:#fff1cf; --bad:#E5484D; --bad-soft:#fde4e5; --r:24px; --shadow:var(--foil); }
-@media (prefers-color-scheme: dark) { html[data-skin="blister"]:not([data-theme="light"]) { --foil:0 1px 0 #2a4350, 0 8px 20px rgba(0,0,0,.35); --chip:#1b3039; --pillbg:#17323d; --pillfg:#7f98a4;
+@media (prefers-color-scheme: dark) { html[data-skin="blister"]:not([data-theme="light"]) { --foil:0 1px 0 #2a4350, 0 8px 20px rgba(0,0,0,.35); --chip:#1b3039; --pillbg:#2b5260; --pillfg:#c3d6de;
   --bg:#0A151B; --card:#12232C; --text:#E8F1F4; --muted:#8AA0AB; --line:#1f343e; --accent:#19B3A7; --accent-soft:#0f3a3a; --good:#4ade80; --warn:#fbbf24; --warn-soft:#3a2c0c; --bad:#f2706f; --bad-soft:#3b1414; --shadow:var(--foil); } }
-html[data-skin="blister"][data-theme="dark"] { --foil:0 1px 0 #2a4350, 0 8px 20px rgba(0,0,0,.35); --chip:#1b3039; --pillbg:#17323d; --pillfg:#7f98a4;
+html[data-skin="blister"][data-theme="dark"] { --foil:0 1px 0 #2a4350, 0 8px 20px rgba(0,0,0,.35); --chip:#1b3039; --pillbg:#2b5260; --pillfg:#c3d6de;
   --bg:#0A151B; --card:#12232C; --text:#E8F1F4; --muted:#8AA0AB; --line:#1f343e; --accent:#19B3A7; --accent-soft:#0f3a3a; --good:#4ade80; --warn:#fbbf24; --warn-soft:#3a2c0c; --bad:#f2706f; --bad-soft:#3b1414; --shadow:var(--foil); }
 html[data-skin="blister"] body { font-family:"DM Sans",Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
 html[data-skin="blister"] .h1,
@@ -65,7 +65,7 @@ html[data-skin="blister"] .toggle { border-radius:99px; }
 html[data-skin="blister"] .bf { background:var(--accent); }
 html[data-skin="blister"] .bt { background:var(--chip); }
 html[data-skin="blister"] .rtable tr.g td { background:var(--accent-soft); }
-html[data-skin="blister"] .tabs { left:14px; right:14px; bottom:calc(14px + env(safe-area-inset-bottom)); max-width:692px; margin:0 auto; padding:7px 8px; height:64px; border:0; border-radius:32px; background:var(--pillbg); box-shadow:0 12px 28px rgba(11,31,42,.35); align-items:center; justify-content:space-around; }
+html[data-skin="blister"] .tabs { border:1px solid var(--pillline,transparent) !important; left:14px; right:14px; bottom:calc(14px + env(safe-area-inset-bottom)); max-width:692px; margin:0 auto; padding:7px 8px; height:64px; border:0; border-radius:32px; background:var(--pillbg); box-shadow:0 12px 28px rgba(11,31,42,.35); align-items:center; justify-content:space-around; }
 html[data-skin="blister"] .tabs button { flex:0 0 auto; width:60px; height:48px; border-radius:24px; color:var(--pillfg); padding:0; justify-content:center; gap:1px; }
 html[data-skin="blister"] .tabs button span { display:none; font-size:10px; }
 html[data-skin="blister"] .tabs button.on { background:var(--accent); color:#fff; width:78px; }
@@ -87,3 +87,6 @@ html[data-skin="blister"] .bl-cav i.e { background:var(--chip); box-shadow:inset
 html[data-skin="blister"] .bl-cav.soon i:not(.e) { background:var(--warn); }
 html[data-skin="blister"] .bl-cav.expired i:not(.e),
 html[data-skin="blister"] .bl-cav.zero i:not(.e) { background:var(--bad); }
+/* dark: lighter, outlined bottom bar so it stands apart from the page */
+@media (prefers-color-scheme: dark) { html[data-skin="blister"]:not([data-theme="light"]) { --pillline:rgba(255,255,255,.18); } }
+html[data-skin="blister"][data-theme="dark"] { --pillline:rgba(255,255,255,.18); }
