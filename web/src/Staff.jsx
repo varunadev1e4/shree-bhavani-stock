@@ -139,6 +139,7 @@ export default function Staff({ back, go }) {
   const [showOld, setShowOld] = useState(false)
   const [err, setErr] = useState('')
   const [logins, setLogins] = useState({})
+  const [expTot, setExpTot] = useState(null)
 
   const reload = useCallback(async () => {
     const [a, b] = await Promise.all([supabase.from('employees').select('*').order('name'), supabase.from('emp_entries').select('*').order('d')])
@@ -148,6 +149,15 @@ export default function Staff({ back, go }) {
     if (!r.error) setLogins(Object.fromEntries(r.data.filter((x) => x.emp_id).map((x) => [x.emp_id, x.email])))
   }, [])
   useEffect(() => { reload() }, [reload])
+  useEffect(() => {
+    const y = Math.floor(ym / 100), m = ym % 100, from = y + '-' + String(m).padStart(2, '0') + '-01', to = y + '-' + String(m).padStart(2, '0') + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0')
+    setExpTot(null)
+    supabase.from('expenses').select('amount,emp_id').gte('d', from).lte('d', to).limit(5000).then(({ data, error }) => {
+      if (error) return
+      const all = data.reduce((t, x) => t + Number(x.amount), 0), staff = data.filter((x) => x.emp_id).reduce((t, x) => t + Number(x.amount), 0)
+      setExpTot({ all, staff })
+    })
+  }, [ym])
 
   const saveEmp = async (f) => {
     const row = { name: f.name, role: f.role || null, phone: f.phone || null, salary: f.salary, join_date: f.join_date, active: f.active !== false,
@@ -195,7 +205,7 @@ export default function Staff({ back, go }) {
   return (
     <div className="app">
       <header className="top"><div><button className="ghost sm" onClick={back}>Back</button><h1 className="h1" style={{ marginTop: 8 }}>Staff</h1></div>
-        <div style={{ display: 'flex', gap: 6 }}>{go && <button className="ghost sm" onClick={() => go('att')}>Attendance</button>}<button className="ghost sm" onClick={() => setForm({ name: '', role: '', phone: '', salary: '', join_date: '', active: true })}>+ Add</button></div></header>
+        <div style={{ display: 'flex', gap: 6 }}>{go && <button className="ghost sm" onClick={() => go('stats')}>Analytics</button>}{go && <button className="ghost sm" onClick={() => go('att')}>Attendance</button>}<button className="ghost sm" onClick={() => setForm({ name: '', role: '', phone: '', salary: '', join_date: '', active: true })}>+ Add</button></div></header>
       <MonthPick ym={ym} onChange={setYm} />
       {err && <p className="error pad">{err}</p>}
       {!emps && <p className="muted pad">Loading...</p>}
@@ -205,6 +215,12 @@ export default function Staff({ back, go }) {
           <div className="mini"><span>Salary bill</span><b>{rs(T.net)}</b></div>
           <div className="mini"><span>Still to pay</span><b>{rs(T.bal)}</b></div>
           <div className="mini"><span>Advances out</span><b>{rs(T.adv)}</b></div>
+        </div>)}
+      {expTot && (
+        <div className="minis" style={{ marginBottom: 10 }}>
+          <div className="mini"><span>Expenses this month</span><b>{rs(expTot.all)}</b></div>
+          <div className="mini"><span>Entered by staff</span><b>{rs(expTot.staff)}</b></div>
+          <div className="mini"><span>Expenses + salaries</span><b>{rs(expTot.all + T.net)}</b></div>
         </div>)}
       {rows.map(({ e, c }) => (
         <button key={e.id} className="chartcard" style={{ width: '100%', textAlign: 'left', border: 0, marginBottom: 8, display: 'grid', gap: 3, opacity: e.active ? 1 : 0.6 }} onClick={() => setSel(e.id)}>
