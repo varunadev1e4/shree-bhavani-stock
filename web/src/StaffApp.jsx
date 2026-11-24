@@ -86,17 +86,20 @@ function Attendance({ emp, entries }) {
     </>)
 }
 
+// Each tile has its own colour and a big picture, so it can be recognised without reading
 const TILES = [
-  ['exp', 'Add expense', 'Spend from the shop fund'],
-  ['tasks', 'Today\'s tasks', ''],
-  ['tag', 'Delivered bills', 'Tag the bills you delivered'],
-  ['report', 'Suggest / report', 'Low stock, new product, problem'],
-  ['ret', 'Sales return note', 'Expired or damaged goods'],
-  ['count', 'Stock count', ''],
-  ['req', 'Request money', 'Ask for fund top-up'],
-  ['att', 'My attendance', ''],
+  ['exp', 'Add expense', 'Spend from the shop fund', '#16a34a', '\u{1F4B8}'],
+  ['tasks', 'Today\'s tasks', '', '#2563eb', '\u2705'],
+  ['tag', 'Delivered bills', 'Tag the bills you delivered', '#ea580c', '\u{1F69A}'],
+  ['report', 'Suggest / report', 'Low stock, new product, problem', '#7c3aed', '\u{1F4A1}'],
+  ['ret', 'Sales return note', 'Expired or damaged goods', '#dc2626', '\u{1F4E6}'],
+  ['count', 'Stock count', '', '#0d9488', '\u{1F522}'],
+  ['req', 'Request money', 'Ask for fund top-up', '#ca8a04', '\u{1F4B0}'],
+  ['att', 'My attendance', '', '#db2777', '\u{1F4C5}'],
 ]
 const TITLE = Object.fromEntries(TILES.map((t) => [t[0], t[1]]))
+const COLOR = Object.fromEntries(TILES.map((t) => [t[0], t[3]]))
+const ICON = Object.fromEntries(TILES.map((t) => [t[0], t[4]]))
 
 export default function StaffApp({ session, empId }) {
   const [tab, setTab] = useState('home')
@@ -158,10 +161,11 @@ export default function StaffApp({ session, empId }) {
             <span>Shop fund balance</span><b style={{ fontSize: 22, color: balance != null && balance < 0 ? 'var(--bad)' : undefined }}>{balance == null ? '...' : rs(balance)}</b>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {TILES.map(([k, l, s]) => (
-              <button key={k} className="chartcard" style={{ textAlign: 'left', border: 0, display: 'grid', gap: 3, minHeight: 74 }} onClick={() => setTab(k)}>
-                <b>{l}{badge[k] > 0 ? <span style={{ background: 'var(--bad)', color: '#fff', borderRadius: 10, padding: '0 7px', marginLeft: 6, fontSize: 12 }}>{badge[k]}</span> : ''}</b>
-                <span className="muted small">{k === 'tasks' ? (nTasks ? nTasks + ' to do' : 'Nothing pending') : k === 'count' ? (nCount ? nCount + ' count sheet(s)' : 'None right now') : k === 'att' ? 'Present, leave, balance' : s}</span>
+            {TILES.map(([k, l, s, c, ic]) => (
+              <button key={k} className="chartcard" style={{ textAlign: 'left', border: 0, display: 'grid', gap: 4, minHeight: 104, background: c, color: '#fff', alignContent: 'start' }} onClick={() => setTab(k)}>
+                <span style={{ fontSize: 34, lineHeight: 1 }}>{ic}</span>
+                <b style={{ fontSize: 16 }}>{l}{badge[k] > 0 ? <span style={{ background: '#fff', color: c, borderRadius: 10, padding: '0 7px', marginLeft: 6, fontSize: 13 }}>{badge[k]}</span> : ''}</b>
+                <span style={{ fontSize: 12, opacity: 0.92 }}>{k === 'tasks' ? (nTasks ? nTasks + ' to do' : 'Nothing pending') : k === 'count' ? (nCount ? nCount + ' count sheet(s)' : 'None right now') : k === 'att' ? 'Present, leave, balance' : s}</span>
               </button>))}
           </div>
           {push === 'ask' && <button className="ghost" style={{ marginTop: 12 }} onClick={turnOn}>Turn on notifications</button>}
@@ -169,7 +173,7 @@ export default function StaffApp({ session, empId }) {
         </>)}
       {emp && tab !== 'home' && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 12px' }}><button className="ghost sm" onClick={() => { setTab('home'); load() }}>Back</button><h2 className="h2" style={{ margin: 0 }}>{TITLE[tab]}</h2></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 12px' }}><button className="ghost sm" onClick={() => { setTab('home'); load() }}>Back</button><h2 className="h2" style={{ margin: 0, color: COLOR[tab] }}>{ICON[tab]} {TITLE[tab]}</h2></div>
           {tab === 'exp' && (
             <>
               <AddExpense emp={emp} uid={uid} balance={balance} onSaved={saved} />
