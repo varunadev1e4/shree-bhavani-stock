@@ -15,6 +15,7 @@ import StaffStats from './StaffStats'
 import Inbox, { useInboxCount } from './Inbox'
 import WeeklySummary from './WeeklySummary'
 import { BUILD } from './version'
+import About from './About'
 import { ActivityPage } from './ActivityLog'
 import { getRole } from './role'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
@@ -381,7 +382,7 @@ function Shell() {
   }, [])
   const go = (t, side) => { if (side) setPs(side); if (t === 'expiry') { setSx('expiry'); t = 'stock' } else if (t === 'stock') setSx('stock'); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} nInbox={nInbox} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('home')} />, act: <ActivityPage back={() => go('home')} />, week: <WeeklySummary back={() => go('home')} />, stats: <StaffStats back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
+  const view = { home: <Home go={go} nInbox={nInbox} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('home')} />, act: <ActivityPage back={() => go('home')} />, week: <WeeklySummary back={() => go('home')} />, about: <About back={() => go('home')} />, stats: <StaffStats back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
@@ -400,6 +401,7 @@ function Shell() {
             <div className="topfix-menu">
               <button type="button" onClick={() => { cycleTheme(); setMenu(false) }}>Theme: {theme}</button>
               <button type="button" onClick={() => { refreshAll(); setMenu(false) }}>Refresh data</button>
+              <button type="button" onClick={() => { setMenu(false); go('about') }}>About</button>
               <button type="button" onClick={() => { setMenu(false); supabase.auth.signOut() }}>Sign out</button>
             </div>
           </>)}
