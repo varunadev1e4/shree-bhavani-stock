@@ -25,7 +25,7 @@ if ($cfg.golden_keep) { $keep = [int]$cfg.golden_keep }
 
 # Same order is used by the restore script (parents before children)
 $TABLES = @("companies","products","batches","parties",
-  "employees","emp_entries","expenses","directory","directory_people","temp_bills","temp_returns","temp_collections",
+  "employees","emp_entries","trips","emp_cash","expenses","directory","directory_people","temp_bills","temp_returns","temp_collections",
   "fy_monthly","fy_product_monthly","fy_party_monthly","sales_lines","gst_bills","hsn_monthly","ledger_entries","party_opening",
   "fy_margin_monthly","bill_payments","pending_bills","daily_summary")
 
@@ -55,7 +55,8 @@ try {
   New-Item -ItemType Directory -Path $work | Out-Null
   $counts = [ordered]@{}
   foreach ($t in $TABLES) {
-    $counts[$t] = Dump-Table $t (Join-Path $work ($t + ".json"))
+    try { $counts[$t] = Dump-Table $t (Join-Path $work ($t + ".json")) }
+    catch { if (@("trips","emp_cash") -contains $t) { $counts[$t] = 0; Log ("  {0}: skipped (run migration-23.sql to create it)" -f $t); continue } else { throw } }
     Log ("  {0}: {1} rows" -f $t, $counts[$t])
   }
   $manifest = [ordered]@{ created = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); supabase_host = ([uri]$base).Host; tables = $counts }
@@ -64,7 +65,7 @@ try {
 SBMA GOLDEN BACKUP - how to bring everything back
 1. Make a new Supabase project (or use the existing one) and run setup-new-shop.sql, then every migration file (migration-3 ... latest) in the SQL Editor.
 2. Put the new Supabase address and SERVICE key into sync-config.json, and the new address and anon key into Vercel (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY), then redeploy.
-3. Create the login user again in Supabase (Authentication > Users).
+3. Create the login user again in Supabase (Authentication > Users). Employee logins: add them again in Authentication > Users, then open each employee in the app (Staff > Edit) and save the login email again.
 4. Double-click restore-golden.bat and give it this zip file. It puts all tables back.
 5. Run run-sync.bat once to bring today's Profit Maker data.
 This file contains customer, staff and sales data. Keep it private.

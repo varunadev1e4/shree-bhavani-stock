@@ -9,6 +9,10 @@ import Expenses from './Expenses'
 import TempReturn from './TempReturn'
 import TempCollection from './TempCollection'
 import BillShare from './BillShare'
+import StaffApp from './StaffApp'
+import Trips from './Trips'
+import Attendance from './Attendance'
+import { getRole } from './role'
 import { num, rs, fmtExp, expState, fetchAll, hue, ini, backupAge, cached, latestSync, clearMem, APP, SHOP } from './util'
 import { Mark } from './Logo'
 import { getTheme, setTheme, nextTheme } from './theme'
@@ -346,18 +350,33 @@ function Shell() {
   }, [])
   const go = (t, side) => { if (side) setPs(side); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} />, exp: <Expenses back={() => go('home')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
+  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, trips: <Trips back={() => go('exp')} />, att: <Attendance back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 18</div>
+      <div className="ver">Build 19</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['insights', 'Insights']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
         ))}
       </nav>
     </>
+  )
+}
+
+function Gate({ session }) {
+  const [r, setR] = useState(null)
+  useEffect(() => { getRole(session.user.email).then(setR) }, [session.user.email])
+  if (!r) return <p className="muted pad">Loading...</p>
+  if (r.role === 'staff' && r.emp_id) return <StaffApp session={session} empId={r.emp_id} />
+  if (r.role === 'owner') return <Shell />
+  return (
+    <div className="loginwrap"><div className="login">
+      <Mark size={76} id="noaccess" /><h1>{APP}</h1>
+      <p className="muted">This login has no access yet. Please ask the owner to set it up.</p>
+      <button className="ghost" onClick={() => supabase.auth.signOut()}>Sign out</button>
+    </div></div>
   )
 }
 
@@ -369,5 +388,5 @@ export default function App() {
     return () => data.subscription.unsubscribe()
   }, [])
   if (session === undefined) return <p className="muted pad">Loading...</p>
-  return session ? <Shell /> : <Login />
+  return session ? <Gate session={session} /> : <Login />
 }

@@ -3,7 +3,8 @@ import { supabase } from './supabase'
 import { rs } from './util'
 import ExportBar from './Export'
 import MonthPick, { curYm, ymName } from './MonthPick'
-import { askConfirm } from './dialog'
+import { askConfirm, showMsg } from './dialog'
+import { flagged, billUrl } from './expcommon'
 
 // Shop expenses (rent, electricity, fuel...). Saved only in this app, not connected to Profit Maker.
 const DEFAULT_CATS = ['Rent', 'Electricity', 'Fuel / transport', 'Tea / food', 'Packing', 'Repairs', 'Phone / internet', 'Fees / licence', 'Stationery', 'Other']
@@ -12,7 +13,7 @@ const span = (ym) => { const y = Math.floor(ym / 100), m = ym % 100; return { fr
 const dm = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 const money = (v) => Math.round((Number(v) || 0) * 100) / 100
 
-export default function Expenses({ back }) {
+export default function Expenses({ back, go }) {
   const [ym, setYm] = useState(curYm())
   const [rows, setRows] = useState(null)
   const [cats, setCats] = useState(DEFAULT_CATS)
@@ -23,6 +24,10 @@ export default function Expenses({ back }) {
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
   const [filter, setFilter] = useState('')
+  const [emps, setEmps] = useState([])
+  const [trips, setTrips] = useState([])
+  const [by, setBy] = useState('')
+  const [who, setWho] = useState('')
 
   const load = useCallback(async () => {
     const s = span(ym)
@@ -31,6 +36,10 @@ export default function Expenses({ back }) {
     setErr(''); setRows(data)
   }, [ym])
   useEffect(() => { setRows(null); load() }, [load])
+  useEffect(() => {
+    supabase.from('employees').select('id,name,active').order('name').then(({ data }) => data && setEmps(data))
+    supabase.from('trips').select('id,city,start_d').then(({ data }) => data && setTrips(data))
+  }, [])
   // Remember categories typed earlier
   useEffect(() => {
     supabase.from('expenses').select('category').order('id', { ascending: false }).limit(300).then(({ data }) => {
@@ -43,14 +52,22 @@ export default function Expenses({ back }) {
     return [...m.entries()].sort((a, b) => b[1] - a[1])
   }, [rows])
   const total = byCat.reduce((s, [, v]) => s + v, 0)
-  const shown = (rows || []).filter((r) => !filter || r.category === filter)
+  const name = (id) => (emps.find((e) => e.id === id) || {}).name || ''
+  const city = (id) => (trips.find((t) => t.id === id) || {}).city || ''
+  const byPerson = useMemo(() => {
+    const m = new Map(); (rows || []).filter((r) => r.emp_id).forEach((r) => { const o = m.get(r.emp_id) || { sum: 0, last: '' }; o.sum += Number(r.amount); if (r.d > o.last) o.last = r.d; m.set(r.emp_id, o) })
+    return [...m.entries()].sort((a, b) => b[1].sum - a[1].sum)
+  }, [rows])
+  const big = useMemo(() => flagged(rows || []), [rows])
+  const shown = (rows || []).filter((r) => (!filter || r.category === filter) && (!who || String(r.emp_id || '') === who))
+  const photo = async (p) => { try { window.open(await billUrl(p), '_blank') } catch (e) { showMsg('Could not open the photo: ' + e.message) } }
 
-  const openForm = () => { const s = span(ym), t = iso(new Date()); setD(t >= s.from && t <= s.to ? t : s.to); setCat(''); setAmt(''); setNote(''); setErr(''); setForm(true) }
+  const openForm = () => { const s = span(ym), t = iso(new Date()); setD(t >= s.from && t <= s.to ? t : s.to); setCat(''); setAmt(''); setNote(''); setBy(''); setErr(''); setForm(true) }
   const save = async () => {
     const category = cat.trim(), amount = Number(amt)
     if (!category) return setErr('Choose or type a category.')
     if (!(amount > 0)) return setErr('Enter the amount.')
-    const { error } = await supabase.from('expenses').insert({ d, category, amount, note: note || null })
+    const { error } = await supabase.from('expenses').insert({ d, category, amount, note: note || null, ...(by ? { emp_id: Number(by) } : {}) })
     if (error) return setErr('Could not save: ' + error.message)
     setForm(false); load()
   }
@@ -58,18 +75,18 @@ export default function Expenses({ back }) {
 
   const build = () => {
     const list = [...shown].sort((a, b) => a.d.localeCompare(b.d))
-    const out = list.map((r) => [dm(r.d), r.category, r.note || '', money(r.amount)])
+    const out = list.map((r) => [dm(r.d), r.category, [name(r.emp_id), city(r.trip_id) && city(r.trip_id) + ' trip', r.note].filter(Boolean).join(' | '), money(r.amount)])
     const bold = [out.length]
     out.push(['', 'TOTAL', '', money(list.reduce((s, r) => s + Number(r.amount), 0))])
     if (!filter) { out.push(['', '', '', '']); byCat.forEach(([c, v]) => out.push(['', c, 'category total', money(v)])) }
-    return { title: 'Shop expenses: ' + ymName(ym) + (filter ? ' | ' + filter : ''), subtitle: list.length + ' entries', filename: 'expenses-' + ym, columns: ['Date', 'Category', 'Note', 'Amount'], rows: out, bold, numCols: [3] }
+    return { title: 'Shop expenses: ' + ymName(ym) + (filter ? ' | ' + filter : '') + (who ? ' | ' + name(Number(who)) : ''), subtitle: list.length + ' entries', filename: 'expenses-' + ym, columns: ['Date', 'Category', 'Note', 'Amount'], rows: out, bold, numCols: [3] }
   }
   const inp = { className: 'fsel', style: { width: '100%', boxSizing: 'border-box' } }
 
   return (
     <div className="app">
       <header className="top"><div><button className="ghost sm" onClick={back}>Back</button><h1 className="h1" style={{ marginTop: 8 }}>Expenses</h1></div>
-        <button className="ghost sm" onClick={openForm}>+ Add</button></header>
+        <div style={{ display: 'flex', gap: 6 }}>{go && <button className="ghost sm" onClick={() => go('trips')}>Trips</button>}<button className="ghost sm" onClick={openForm}>+ Add</button></div></header>
       <MonthPick ym={ym} onChange={setYm} />
       {form && (
         <div className="chartcard" style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
@@ -78,6 +95,7 @@ export default function Expenses({ back }) {
           <input {...inp} type="number" inputMode="decimal" placeholder="Amount" value={amt} onChange={(e) => setAmt(e.target.value)} />
           <input {...inp} type="date" value={d} onChange={(e) => setD(e.target.value)} />
           <input {...inp} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+          {emps.length > 0 && <select {...inp} value={by} onChange={(e) => setBy(e.target.value)}><option value="">Spent by: shop / owner</option>{emps.filter((e) => e.active).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select>}
           {err && <p className="error">{err}</p>}
           <div className="btnrow" style={{ paddingTop: 0 }}><button className="primary" style={{ flex: 1 }} onClick={save}>Save</button><button className="ghost" style={{ margin: 0 }} onClick={() => setForm(false)}>Cancel</button></div>
         </div>)}
@@ -95,11 +113,20 @@ export default function Expenses({ back }) {
               </button>))}
             {filter && <span className="muted small">Showing only {filter}. Tap it again to show all.</span>}
           </div>
+          {byPerson.length > 0 && (
+            <div className="chartcard" style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+              <b>Entered by staff</b>
+              {byPerson.map(([id, o]) => (
+                <button key={id} onClick={() => setWho(who === String(id) ? '' : String(id))} style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', display: 'flex', justifyContent: 'space-between', fontWeight: who === String(id) ? 700 : 400 }}>
+                  <span>{name(id) || 'Employee'} <span className="muted small">last entry {dm(o.last)}</span></span><span>{rs(o.sum)}</span>
+                </button>))}
+              {who && <span className="muted small">Showing only {name(Number(who))}. Tap the name again to show all.</span>}
+            </div>)}
           <div style={{ margin: '12px 0 4px' }}><ExportBar build={build} /></div>
           {shown.map((r) => (
             <div key={r.id} className="chartcard" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span><b>{dm(r.d)}</b> {r.category}{r.note ? <span className="muted small"> | {r.note}</span> : ''}</span>
-              <span><b>{rs(r.amount)}</b> <button className="ghost sm" onClick={() => del(r)}>x</button></span>
+              <span><b>{dm(r.d)}</b> {r.category}{r.emp_id ? <span className="muted small"> | {name(r.emp_id)}</span> : ''}{r.trip_id ? <span className="muted small"> | {city(r.trip_id)} trip</span> : ''}{r.note ? <span className="muted small"> | {r.note}</span> : ''}{big.has(r.id) ? <span style={{ color: 'var(--warn)' }} title="Much larger than usual for this category"> unusually large</span> : ''}</span>
+              <span><b>{rs(r.amount)}</b> {r.photo && <button className="ghost sm" onClick={() => photo(r.photo)}>Bill</button>} <button className="ghost sm" onClick={() => del(r)}>x</button></span>
             </div>))}
         </>)}
       <p className="muted small" style={{ marginTop: 14 }}>Expenses are saved only in this app. Staff salaries are in Staff and are added to expenses on the CA &amp; GST tab to show your real profit.</p>
