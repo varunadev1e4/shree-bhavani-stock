@@ -18,7 +18,7 @@ $key = $cfg.supabase_key
 $hdr = @{ apikey = $key; Prefer = "resolution=merge-duplicates,return=minimal" }
 if ($key.StartsWith("eyJ")) { $hdr["Authorization"] = "Bearer $key" }
 
-$UPSERT = @("companies","products","batches","parties","employees","emp_entries","trips","emp_cash","shop_fund","expenses","directory","directory_people","temp_bills","temp_returns","temp_collections")
+$UPSERT = @("companies","products","batches","parties","employees","emp_entries","trips","emp_cash","shop_fund","emp_tasks","staff_reports","field_returns","fund_requests","counts","count_items","count_expected","bill_tags","expenses","directory","directory_people","temp_bills","temp_returns","temp_collections")
 $REPLACE = @("fy_monthly","fy_product_monthly","fy_party_monthly","sales_lines","gst_bills","hsn_monthly","ledger_entries","party_opening","fy_margin_monthly","bill_payments","pending_bills","daily_summary")
 
 if (-not (Test-Path $File)) { throw "File not found: $File" }

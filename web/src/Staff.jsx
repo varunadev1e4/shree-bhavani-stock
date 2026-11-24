@@ -5,6 +5,7 @@ import { exportPdf } from './exporter'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { calc, inMonth, daysIn, leaveBalance } from './staffcalc'
 import { askConfirm, showMsg } from './dialog'
+import { useInboxCount } from './Inbox'
 
 // Staff: attendance exceptions, advances, salary. Saved only in this app's own tables, not connected to Profit Maker.
 const KINDS = [
@@ -123,6 +124,7 @@ export default function Staff({ back, go }) {
   const [showOld, setShowOld] = useState(false)
   const [err, setErr] = useState('')
   const [logins, setLogins] = useState({})
+  const nInbox = useInboxCount()
 
   const reload = useCallback(async () => {
     const [a, b] = await Promise.all([supabase.from('employees').select('*').order('name'), supabase.from('emp_entries').select('*').order('d')])
@@ -179,7 +181,7 @@ export default function Staff({ back, go }) {
   return (
     <div className="app">
       <header className="top"><div><button className="ghost sm" onClick={back}>Back</button><h1 className="h1" style={{ marginTop: 8 }}>Staff</h1></div>
-        <div style={{ display: 'flex', gap: 6 }}>{go && <button className="ghost sm" onClick={() => go('att')}>Attendance</button>}<button className="ghost sm" onClick={() => setForm({ name: '', role: '', phone: '', salary: '', join_date: '', active: true })}>+ Add</button></div></header>
+        <div style={{ display: 'flex', gap: 6 }}>{go && <button className="ghost sm" onClick={() => go('inbox')}>Inbox{nInbox > 0 ? ' (' + nInbox + ')' : ''}</button>}{go && <button className="ghost sm" onClick={() => go('att')}>Attendance</button>}<button className="ghost sm" onClick={() => setForm({ name: '', role: '', phone: '', salary: '', join_date: '', active: true })}>+ Add</button></div></header>
       <MonthPick ym={ym} onChange={setYm} />
       {err && <p className="error pad">{err}</p>}
       {!emps && <p className="muted pad">Loading...</p>}

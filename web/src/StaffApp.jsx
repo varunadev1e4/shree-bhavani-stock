@@ -6,9 +6,11 @@ import MonthPick, { curYm, ymName } from './MonthPick'
 import { askConfirm, showMsg } from './dialog'
 import { daysIn, inMonth, leaveBalance } from './staffcalc'
 import { STAFF_CATS, iso, dm, span } from './expcommon'
+import { Tasks, TagBill, Report, ReturnNote, RequestMoney, CountSheets } from './StaffTools'
+import { pushSupported, pushOn, enablePush } from './push'
 
-// The only screen an employee login can open: add own expenses (deducted from the shared shop fund) and see own attendance.
-// The database enforces this: an employee login cannot read stock, customers, sales or anyone else's records.
+// The only screen an employee login can open. The database enforces this: an employee login cannot read
+// stock, customers, sales, profit or anyone else's records.
 
 const inp = { className: 'fsel', style: { width: '100%', boxSizing: 'border-box' } }
 
@@ -98,29 +100,49 @@ function Attendance({ emp, entries }) {
     </>)
 }
 
+const TILES = [
+  ['exp', 'Add expense', 'Spend from the shop fund'],
+  ['tasks', 'Today\'s tasks', ''],
+  ['tag', 'Delivered bills', 'Tag the bills you delivered'],
+  ['report', 'Suggest / report', 'Low stock, new product, problem'],
+  ['ret', 'Sales return note', 'Expired or damaged goods'],
+  ['count', 'Stock count', ''],
+  ['req', 'Request money', 'Ask for fund top-up'],
+  ['att', 'My attendance', ''],
+]
+const TITLE = Object.fromEntries(TILES.map((t) => [t[0], t[1]]))
+
 export default function StaffApp({ session, empId }) {
-  const [tab, setTab] = useState('exp')
+  const [tab, setTab] = useState('home')
   const [emp, setEmp] = useState(null)
   const [exps, setExps] = useState([])
   const [ents, setEnts] = useState([])
   const [balance, setBalance] = useState(null)
+  const [nTasks, setNTasks] = useState(0)
+  const [nCount, setNCount] = useState(0)
+  const [push, setPush] = useState(pushSupported() ? 'ask' : 'none')
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const uid = session.user.id
 
   const load = useCallback(async () => {
-    const [a, b, e, f] = await Promise.all([
+    const [a, b, e, f, t, c] = await Promise.all([
       supabase.from('employees').select('*').eq('id', empId).limit(1),
       supabase.from('expenses').select('*').order('d', { ascending: false }).order('id', { ascending: false }),
       supabase.from('emp_entries').select('*').order('d'),
       supabase.rpc('fund_balance'),
+      supabase.from('emp_tasks').select('id').eq('done', false),
+      supabase.from('counts').select('id').eq('status', 'open'),
     ])
     const bad = [a, b, e].find((x) => x.error)
     if (bad) return setErr(bad.error.message)
     setErr(''); setEmp(a.data[0] || null); setExps(b.data); setEnts(e.data)
     if (!f.error) setBalance(f.data == null ? null : Number(f.data))
+    if (!t.error) setNTasks(t.data.length)
+    if (!c.error) setNCount(c.data.length)
   }, [empId])
   useEffect(() => { load() }, [load])
+  useEffect(() => { pushOn().then((on) => on && setPush('on')) }, [])
   // Keep the shared balance fresh: every 30 seconds and whenever the app comes back to the front
   useEffect(() => {
     const t = setInterval(() => { if (!document.hidden) load() }, 30000)
@@ -132,6 +154,8 @@ export default function StaffApp({ session, empId }) {
   const ym = curYm(), sp = span(ym)
   const monthRows = exps.filter((x) => x.d >= sp.from && x.d <= sp.to)
   const saved = (msg) => { setOk(msg); setTimeout(() => setOk(''), 3000); load() }
+  const turnOn = async () => { const r = await enablePush('staff', empId); if (r === true) setPush('on'); else showMsg(r) }
+  const badge = { tasks: nTasks, count: nCount }
 
   if (!emp && !err) return <p className="muted pad">Loading...</p>
   return (
@@ -142,16 +166,38 @@ export default function StaffApp({ session, empId }) {
       </header>
       {err && <p className="error pad">{err}</p>}
       {ok && <p className="pad" style={{ color: 'var(--good)', fontWeight: 600 }}>{ok}</p>}
-      <div style={{ display: 'flex', gap: 6, margin: '8px 0 12px' }}>
-        {[['exp', 'Expenses'], ['att', 'My attendance']].map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}
-      </div>
-      {emp && tab === 'exp' && (
+      {emp && tab === 'home' && (
         <>
-          <AddExpense emp={emp} uid={uid} balance={balance} onSaved={saved} />
-          <h2 className="h2" style={{ marginTop: 14 }}>My entries, {ymName(ym)}</h2>
-          <Recent rows={monthRows} reload={load} />
+          <div className="chartcard" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0' }}>
+            <span>Shop fund balance</span><b style={{ fontSize: 22, color: balance != null && balance < 0 ? 'var(--bad)' : undefined }}>{balance == null ? '...' : rs(balance)}</b>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {TILES.map(([k, l, s]) => (
+              <button key={k} className="chartcard" style={{ textAlign: 'left', border: 0, display: 'grid', gap: 3, minHeight: 74 }} onClick={() => setTab(k)}>
+                <b>{l}{badge[k] > 0 ? <span style={{ background: 'var(--bad)', color: '#fff', borderRadius: 10, padding: '0 7px', marginLeft: 6, fontSize: 12 }}>{badge[k]}</span> : ''}</b>
+                <span className="muted small">{k === 'tasks' ? (nTasks ? nTasks + ' to do' : 'Nothing pending') : k === 'count' ? (nCount ? nCount + ' count sheet(s)' : 'None right now') : k === 'att' ? 'Present, leave, balance' : s}</span>
+              </button>))}
+          </div>
+          {push === 'ask' && <button className="ghost" style={{ marginTop: 12 }} onClick={turnOn}>Turn on notifications</button>}
+          {push === 'on' && <p className="muted small" style={{ marginTop: 12 }}>Notifications are on for this phone.</p>}
         </>)}
-      {emp && tab === 'att' && <Attendance emp={emp} entries={ents} />}
+      {emp && tab !== 'home' && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 12px' }}><button className="ghost sm" onClick={() => { setTab('home'); load() }}>Back</button><h2 className="h2" style={{ margin: 0 }}>{TITLE[tab]}</h2></div>
+          {tab === 'exp' && (
+            <>
+              <AddExpense emp={emp} uid={uid} balance={balance} onSaved={saved} />
+              <h2 className="h2" style={{ marginTop: 14 }}>My entries, {ymName(ym)}</h2>
+              <Recent rows={monthRows} reload={load} />
+            </>)}
+          {tab === 'tasks' && <Tasks onChange={setNTasks} />}
+          {tab === 'tag' && <TagBill />}
+          {tab === 'report' && <Report emp={emp} />}
+          {tab === 'ret' && <ReturnNote emp={emp} />}
+          {tab === 'count' && <CountSheets onChange={load} />}
+          {tab === 'req' && <RequestMoney emp={emp} balance={balance} />}
+          {tab === 'att' && <Attendance emp={emp} entries={ents} />}
+        </>)}
     </div>
   )
 }
