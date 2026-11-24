@@ -46,7 +46,7 @@ export function calc(emp, all, ym) {
   // After the last working day the salary stops; in that month it is paid up to that day
   let salary = full
   if (emp.leave_date) { const lm = ymOf(emp.leave_date); if (ym > lm) salary = 0; else if (ym === lm) salary = Math.round((full * Number(emp.leave_date.slice(8, 10))) / days) }
-  const unpaid = cnt(m, 'absent') + 0.5 * cnt(m, 'half')
+  const unpaid = emp.no_attendance ? 0 : cnt(m, 'absent') + 0.5 * cnt(m, 'half')
   const cut = salary > 0 ? Math.round((full / days) * unpaid) : 0
   const overtime = sum(m, 'overtime')
   const net = salary - cut + sum(m, 'bonus') + overtime - sum(m, 'deduction')

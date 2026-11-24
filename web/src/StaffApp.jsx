@@ -4,7 +4,8 @@ import { rs, APP, SHOP } from './util'
 import { Mark } from './Logo'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { askConfirm, showMsg } from './dialog'
-import { daysIn, inMonth, leaveBalance } from './staffcalc'
+import { inMonth, leaveBalance } from './staffcalc'
+import AttCalendar from './AttCalendar'
 import { STAFF_CATS, iso, dm, span } from './expcommon'
 import { Tasks, TagBill, Report, ReturnNote, RequestMoney, CountSheets } from './StaffTools'
 import { pushSupported, pushOn, enablePush } from './push'
@@ -68,28 +69,13 @@ function Recent({ rows, reload }) {
 
 function Attendance({ emp, entries }) {
   const [ym, setYm] = useState(curYm())
-  const days = daysIn(ym), y = Math.floor(ym / 100), m = ym % 100
   const mine = entries.filter((e) => inMonth(e.d, ym))
-  const kindOn = (day) => { const d = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0'); return mine.filter((e) => e.d === d).map((e) => e.kind)[0] || '' }
-  const lead = new Date(y, m - 1, 1).getDay()
-  const today = iso(new Date())
-  const color = { absent: 'var(--bad)', half: 'var(--warn)', paidleave: 'var(--accent)' }
   const nA = mine.filter((e) => e.kind === 'absent').length, nH = mine.filter((e) => e.kind === 'half').length, nP = mine.filter((e) => e.kind === 'paidleave').length
   const lb = leaveBalance(emp, entries.map((e) => ({ ...e, emp_id: emp.id })), ym)
-  const cells = []
-  for (let i = 0; i < lead; i++) cells.push(<i key={'b' + i} />)
-  for (let day = 1; day <= days; day++) {
-    const k = kindOn(day), d = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0'), fut = d > today
-    cells.push(<div key={day} style={{ textAlign: 'center', padding: '8px 0', borderRadius: 8, background: k ? color[k] : 'transparent', color: k ? '#fff' : fut ? 'var(--muted)' : undefined, border: k ? 0 : '1px solid var(--line)', fontWeight: 600 }}>{day}</div>)
-  }
   return (
     <>
       <MonthPick ym={ym} onChange={setYm} />
-      <div className="chartcard">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8, textAlign: 'center' }} className="muted small">{['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((x, i) => <span key={i}>{x}</span>)}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>{cells}</div>
-        <p className="muted small" style={{ margin: '10px 0 0' }}>Plain days = present. <b style={{ color: 'var(--bad)' }}>Red</b> absent, <b style={{ color: 'var(--warn)' }}>amber</b> half day, <b style={{ color: 'var(--accent)' }}>blue</b> paid leave.</p>
-      </div>
+      <AttCalendar ym={ym} entries={entries} />
       <div className="minis" style={{ marginTop: 10 }}>
         <div className="mini"><span>Absent</span><b>{nA}</b></div>
         <div className="mini"><span>Half days</span><b>{nH}</b></div>

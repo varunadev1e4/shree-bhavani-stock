@@ -20,7 +20,7 @@ export default function Attendance({ back }) {
   const load = useCallback(async () => {
     const from = d.slice(0, 7) + '-01', to = d.slice(0, 7) + '-' + String(daysIn(ymOf(d))).padStart(2, '0')
     const [a, b] = await Promise.all([
-      supabase.from('employees').select('id,name,role,active,join_date,leave_date').order('name'),
+      supabase.from('employees').select('*').order('name'),
       supabase.from('emp_entries').select('id,emp_id,d,kind').in('kind', ATT).gte('d', from).lte('d', to),
     ])
     if (a.error || b.error) { setErr((a.error || b.error).message); setEmps([]); return }
@@ -28,7 +28,7 @@ export default function Attendance({ back }) {
   }, [d])
   useEffect(() => { load() }, [load])
 
-  const people = (emps || []).filter((e) => e.active && (!e.join_date || e.join_date <= d) && (!e.leave_date || e.leave_date >= d))
+  const people = (emps || []).filter((e) => e.active && !e.no_attendance && (!e.join_date || e.join_date <= d) && (!e.leave_date || e.leave_date >= d))
   const kindOf = (id) => { const x = ents.find((e) => e.emp_id === id && e.d === d); return x ? x.kind : '' }
 
   const mark = async (emp, kind) => {
@@ -41,6 +41,7 @@ export default function Attendance({ back }) {
     }
     await load(); setBusy(0)
   }
+  const offDates = (id) => ents.filter((x) => x.emp_id === id && x.kind !== 'present').sort((a, b) => a.d.localeCompare(b.d)).map((x) => Number(x.d.slice(8, 10)) + (x.kind === 'half' ? ' (half)' : x.kind === 'paidleave' ? ' (PL)' : '')).join(', ')
   const monthAbs = (id) => ents.filter((e) => e.emp_id === id && inMonth(e.d, ymOf(d)) && e.kind !== 'paidleave').reduce((s, e) => s + (e.kind === 'half' ? 0.5 : 1), 0)
 
   return (
@@ -57,7 +58,7 @@ export default function Attendance({ back }) {
       {emps && !people.length && !err && <div className="empty"><b>No working employees on this date</b></div>}
       {people.map((e) => (
         <div key={e.id} className="chartcard" style={{ marginBottom: 8, opacity: busy === e.id ? 0.6 : 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{e.name}</b><span className="muted small">{e.role || ''}{monthAbs(e.id) ? ' | ' + monthAbs(e.id) + ' day(s) off this month' : ''}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{e.name}</b><span className="muted small">{e.role || ''}{monthAbs(e.id) ? ' | off this month: ' + offDates(e.id) : ''}</span></div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
             {OPTIONS.map(([k, l]) => <button key={l} disabled={busy === e.id} className={'qc' + (kindOf(e.id) === k ? ' on' : '')} onClick={() => kindOf(e.id) !== k && mark(e, k)}>{l}</button>)}
           </div>

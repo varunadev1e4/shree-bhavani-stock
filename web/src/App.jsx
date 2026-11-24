@@ -26,6 +26,7 @@ const ICONS = {
   insights: I(<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />),
   stock: I(<path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />),
   expiry: I(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
+  staff: I(<><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.8-3.8 3.6-6 7-6s6.2 2.2 7 6" /></>),
   parties: I(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .6 3.3 2.3 3.7 5.2" /></>),
 }
 const Refresh = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg>
@@ -203,6 +204,19 @@ function Card({ p, open, onToggle }) {
   )
 }
 
+// Stock and Expiry share one tab: a small switch at the top
+function StockExpiry({ sx, setSx }) {
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 6, padding: '12px 16px 0' }}>
+        <button className={'qc' + (sx === 'stock' ? ' on' : '')} onClick={() => setSx('stock')}>Stock</button>
+        <button className={'qc' + (sx === 'expiry' ? ' on' : '')} onClick={() => setSx('expiry')}>Expiry</button>
+      </div>
+      {sx === 'expiry' ? <Expiry /> : <Stock />}
+    </>
+  )
+}
+
 function Stock() {
   const [all, setAll] = useState([])
   const [loading, setLoading] = useState(true)
@@ -328,6 +342,7 @@ function Shell() {
   const [ps, setPs] = useState('recv')
   const [off, setOff] = useState(!navigator.onLine)
   const [rev, setRev] = useState(0)
+  const [sx, setSx] = useState('stock')
   const [stale, setStale] = useState(false)
   useEffect(() => { const f = () => setOff(!navigator.onLine); window.addEventListener('online', f); window.addEventListener('offline', f); return () => { window.removeEventListener('online', f); window.removeEventListener('offline', f) } }, [])
   // Reload the data when a newer backup has been synced (a tiny check first, to save data)
@@ -349,17 +364,17 @@ function Shell() {
     document.addEventListener('visibilitychange', vis); window.addEventListener('sb-stale', st)
     return () => { clearInterval(iv); document.removeEventListener('visibilitychange', vis); window.removeEventListener('sb-stale', st) }
   }, [])
-  const go = (t, side) => { if (side) setPs(side); setTab(t); window.scrollTo(0, 0) }
+  const go = (t, side) => { if (side) setPs(side); if (t === 'expiry') { setSx('expiry'); t = 'stock' } else if (t === 'stock') setSx('stock'); setTab(t); window.scrollTo(0, 0) }
   // Only the open tab exists on the page; the others are created when you open them.
-  const view = { home: <Home go={go} />, stock: <Stock />, expiry: <Expiry />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
+  const view = { home: <Home go={go} />, stock: <StockExpiry sx={sx} setSx={setSx} />, parties: <Parties side={ps} />, insights: <Insights />, temp: <TempBill back={() => go('home')} />, staff: <Staff back={() => go('home')} go={go} />, exp: <Expenses back={() => go('home')} go={go} />, att: <Attendance back={() => go('staff')} />, inbox: <Inbox back={() => go('staff')} />, ret: <TempReturn back={() => go('home')} />, col: <TempCollection back={() => go('home')} />, bill: <BillShare back={() => go('home')} /> }[tab]
   return (
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 20</div>
+      <div className="ver">Build 21</div>
       <nav className="tabs">
-        {[['home', 'Home'], ['stock', 'Stock'], ['expiry', 'Expiry'], ['parties', 'Parties'], ['insights', 'Insights']].map(([k, l]) => (
-          <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
+        {[['home', 'Home'], ['stock', 'Stock'], ['parties', 'Parties'], ['insights', 'Insights'], ['staff', 'Staff']].map(([k, l]) => (
+          <button key={k} className={tab === k || (k === 'staff' && ['att', 'inbox'].includes(tab)) ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>
         ))}
       </nav>
     </>

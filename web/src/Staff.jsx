@@ -6,6 +6,7 @@ import MonthPick, { curYm, ymName } from './MonthPick'
 import { calc, inMonth, daysIn, leaveBalance } from './staffcalc'
 import { askConfirm, showMsg } from './dialog'
 import { useInboxCount } from './Inbox'
+import AttCalendar, { setAttendance } from './AttCalendar'
 
 // Staff: attendance exceptions, advances, salary. Saved only in this app's own tables, not connected to Profit Maker.
 const KINDS = [
@@ -30,6 +31,7 @@ function EmpForm({ init, onSave, onCancel }) {
       <label className="muted small">Joining date<input {...inp} type="date" value={f.join_date || ''} onChange={(e) => set('join_date', e.target.value)} /></label>
       <label className="muted small">Advance cut from salary every month (0 = I will enter it myself)<input {...inp} type="number" inputMode="decimal" value={f.adv_cut || ''} onChange={(e) => set('adv_cut', e.target.value)} /></label>
       {Number(f.adv_cut) > 0 && <label className="muted small">Automatic cut starts from<input {...inp} type="date" value={f.adv_cut_from || ''} onChange={(e) => set('adv_cut_from', e.target.value)} /></label>}
+      <label className="muted small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={!!f.no_attendance} onChange={(e) => set('no_attendance', e.target.checked)} />Owner / partner: no attendance, no salary cut for leave</label>
       <label className="muted small">Paid leaves allowed per year (0 = do not track)<input {...inp} type="number" inputMode="decimal" value={f.leave_quota || ''} onChange={(e) => set('leave_quota', e.target.value)} /></label>
       <label className="muted small">Last working day (only if leaving; salary stops after it)<input {...inp} type="date" value={f.leave_date || ''} onChange={(e) => set('leave_date', e.target.value)} /></label>
       <label className="muted small">Login email for this employee (optional). First add the same email in Supabase &gt; Authentication &gt; Users &gt; Add user. The employee can then only add expenses and see own attendance.<input {...inp} type="email" placeholder="employee@example.com" value={f.login || ''} onChange={(e) => set('login', e.target.value)} /></label>
@@ -46,6 +48,7 @@ function Detail({ emp, all, ym, setYm, reload, back, edit }) {
   const lb = useMemo(() => leaveBalance(emp, all, ym), [emp, all, ym])
 
   const [kind, setKind] = useState(null)
+  const [day, setDay] = useState(null)
   const [d, setD] = useState(iso(new Date()))
   const [amt, setAmt] = useState('')
   const [note, setNote] = useState('')
@@ -92,6 +95,19 @@ function Detail({ emp, all, ym, setYm, reload, back, edit }) {
 
         <div className="muted small">Unpaid days cut at salary / {c.days} days per day.</div>
       </div>
+      {!emp.no_attendance && (
+        <>
+          <h2 className="h2" style={{ marginTop: 14 }}>Attendance calendar</h2>
+          <AttCalendar ym={ym} entries={all.filter((e) => e.emp_id === emp.id)} onPick={setDay} picked={day} />
+          {day && (
+            <div className="chartcard" style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+              <b>{dm(day)}</b>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[['', 'Present'], ['absent', 'Absent'], ['half', 'Half day'], ['paidleave', 'Paid leave']].map(([k, l]) => (
+                  <button key={l} className="qc" onClick={async () => { const er = await setAttendance(emp.id, day, k); if (er) return showMsg('Could not save: ' + er.message); setDay(null); reload() }}>{l}</button>))}
+              </div>
+            </div>)}
+        </>)}
       <h2 className="h2" style={{ marginTop: 14 }}>Add entry</h2>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{KINDS.map(([k, l]) => <button key={k} className={'qc' + (kind === k ? ' on' : '')} onClick={() => open(k)}>{l}</button>)}</div>
       {kind && (
@@ -137,7 +153,7 @@ export default function Staff({ back, go }) {
 
   const saveEmp = async (f) => {
     const row = { name: f.name, role: f.role || null, phone: f.phone || null, salary: f.salary, join_date: f.join_date, active: f.active !== false,
-      adv_cut: f.adv_cut || 0, adv_cut_from: f.adv_cut_from || null, leave_quota: f.leave_quota || 0, leave_date: f.leave_date || null }
+      adv_cut: f.adv_cut || 0, adv_cut_from: f.adv_cut_from || null, no_attendance: !!f.no_attendance, leave_quota: f.leave_quota || 0, leave_date: f.leave_date || null }
     const q = f.id ? supabase.from('employees').update(row).eq('id', f.id).select('id') : supabase.from('employees').insert(row).select('id')
     const { data, error } = await q
     if (error) return showMsg('Could not save: ' + error.message + ' (run migration-23.sql in Supabase)')

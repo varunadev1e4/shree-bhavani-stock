@@ -47,10 +47,19 @@ function Requests() {
     await supabase.from('fund_requests').update({ status: 'done' }).eq('id', r.id); load()
   }
   const no = async (r) => { await supabase.from('fund_requests').update({ status: 'rejected' }).eq('id', r.id); load() }
+  const addDirect = async () => {
+    const v = await askPrompt('Money to add to the shop fund (Rs)', '')
+    const amount = Number(v)
+    if (!(amount > 0)) return
+    const { error } = await supabase.from('shop_fund').insert({ d: iso(new Date()), amount })
+    if (error) return showMsg('Could not add: ' + error.message + ' (run migration-24.sql)')
+    showMsg(rs(amount) + ' added to the shop fund.')
+  }
   if (!rows) return <p className="muted pad">Loading...</p>
   const open = rows.filter((r) => r.status === 'open')
   return (
     <>
+      <button className="ghost" style={{ marginTop: 0 }} onClick={addDirect}>+ Add money to fund (no request needed)</button>
       {!open.length && <div className="empty"><b>No requests waiting</b></div>}
       {open.map((r) => (
         <div key={r.id} className="chartcard" style={{ marginBottom: 8, display: 'grid', gap: 4 }}>
