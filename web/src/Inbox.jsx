@@ -292,16 +292,18 @@ function FollowUp({ emps, onChange }) {
   const load = useCallback(async () => {
     setRows(null)
     const from = iso(new Date(Date.now() - days * 864e5))
-    const [h, t, k] = await Promise.all([
-      supabase.from('bill_heads').select('feed_no,party,net,d,typ,city').gte('d', from).order('d', { ascending: false }).limit(1000),
-      supabase.from('bill_tags').select('bill_no').gte('created_at', addMonths(from, -2)).limit(5000),
-      supabase.from('delivery_skip').select('bill_no').gte('created_at', addMonths(from, -2)).limit(5000),
-    ])
+    const h = await supabase.from('bill_heads').select('feed_no,party,net,d,typ,city').gte('d', from).order('d', { ascending: false }).limit(1000)
     if (h.error) { showMsg(h.error.message); return setRows([]) }
-    if (k.error) showMsg(k.error.message + ' (run migration-27.sql in Supabase)')
-    if (t.error) showMsg('Could not read delivery tags: ' + t.error.message)
-    // Match on the bill number alone (spaces and capitals ignored). The list only looks back a few weeks, so the same number from another year cannot clash.
-    const done = new Set([...(t.data || []), ...(k.data || [])].map((x) => norm(x.bill_no)))
+    // Ask only about the bills on screen (the server returns at most 1000 rows per request, so a plain "all tags" query would miss most of them)
+    const nos = [...new Set(h.data.filter((x) => x.feed_no).flatMap((x) => [norm(x.feed_no), String(x.feed_no).trim().toUpperCase()]))]
+    const done = new Set()
+    for (let i = 0; i < nos.length; i += 100) {
+      const part = nos.slice(i, i + 100)
+      const [t, k] = await Promise.all([supabase.from('bill_tags').select('bill_no').in('bill_no', part), supabase.from('delivery_skip').select('bill_no').in('bill_no', part)])
+      if (t.error) showMsg('Could not read delivery tags: ' + t.error.message)
+      if (k.error) showMsg(k.error.message + ' (run migration-27.sql in Supabase)')
+      ;[...(t.data || []), ...(k.data || [])].forEach((x) => done.add(norm(x.bill_no)))
+    }
     setRows(h.data.filter((x) => x.feed_no && !done.has(norm(x.feed_no))))
   }, [days])
   useEffect(() => { load() }, [load])
