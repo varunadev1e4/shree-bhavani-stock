@@ -413,7 +413,6 @@ function Shell() {
               <button type="button" onClick={() => { refreshAll(); setMenu(false) }}>Refresh data</button>
               <button type="button" onClick={() => { setMenu(false); go('about') }}>About</button>
               <button type="button" onClick={() => { setMenu(false); setPwOpen(true) }}>Change password</button>
-              <button type="button" onClick={() => { setMenu(false); setPwOpen(true) }}>Change password</button>
               <button type="button" onClick={() => { setMenu(false); supabase.auth.signOut() }}>Sign out</button>
             </div>
           </>)}
