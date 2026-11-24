@@ -393,15 +393,18 @@ export default function Inbox({ back, start }) {
     if (push === 'on') { await disablePush(); return setPush('ask') }
     const r = await enablePush('owner', null); if (r === true) setPush('on'); else showMsg(r)
   }
-  const View = TABS.find((t) => t[0] === tab)[2]
+  const CHIPS = [['req', 'Requests', ['req']], ['rep', 'Reports & returns', ['rep', 'ret']], ['task', 'Tasks & counts', ['task', 'cnt']], ['del', 'Deliveries', ['del']], ['act', 'Activity', ['act']]]
+  const chipOf = (t) => (CHIPS.find((c) => c[2].includes(t)) || CHIPS[0])[0]
+  const parts = (CHIPS.find((c) => c[0] === chipOf(tab)) || CHIPS[0])[2]
+  const title = { rep: ['Reports and suggestions', 'Sales return notes'], task: ['Tasks', 'Stock counts'] }
   return (
     <div className="app">
       <header className="top"><div><button className="ghost sm" onClick={back}>Back</button><h1 className="h1" style={{ marginTop: 8 }}>Staff inbox</h1></div>
         {push !== 'none' && <button className="ghost sm" onClick={toggle}>{push === 'on' ? 'Notifications on' : 'Turn on notifications'}</button>}</header>
       <div className="tabscroll" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, marginBottom: 10 }}>
-        {TABS.map(([k, l]) => <button key={k} className={'qc' + (tab === k ? ' on' : '')} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}</button>)}
+        {CHIPS.filter((c) => c[0] !== 'act' || chipOf(tab) === 'act').map(([k, l]) => <button key={k} className={'qc' + (chipOf(tab) === k ? ' on' : '')} style={{ whiteSpace: 'nowrap' }} onClick={() => setTab(k)}>{l}</button>)}
       </div>
-      <View key={tab} />
+      {parts.map((k, i) => { const V = TABS.find((t) => t[0] === k)[2]; const tt = title[chipOf(tab)]; return <div key={k}>{parts.length > 1 && <h2 className="h2" style={{ marginTop: i ? 18 : 0 }}>{tt[i]}</h2>}<V /></div> })}
     </div>
   )
 }

@@ -77,10 +77,14 @@ function Home({ go }) {
   const [err, setErr] = useState('')
   const [spin, setSpin] = useState(false)
   const [nCol, setNCol] = useState(0)
+  const [nTmp, setNTmp] = useState(0)
+  const [menu, setMenu] = useState(false)
+  const [more, setMore] = useState(false)
   const [tick, setTick] = useState(0)
   const nInbox = useInboxCount(tick)
   useEffect(() => {
     supabase.from('temp_collections').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNCol(count || 0)).catch(() => {})
+    supabase.from('temp_bills').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => setNTmp(count || 0)).catch(() => {})
   }, [])
   const [theme, setThemeState] = useState(getTheme())
   const cycleTheme = () => { const n = nextTheme(theme); setTheme(n); setThemeState(n) }
@@ -113,22 +117,41 @@ function Home({ go }) {
       <header className="top">
         <div><div className="muted small">{h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}</div><h1 className="h1">{APP}</h1>
           {d && <div className={'syncpill ' + sync.cls}><i />{sync.text}</div>}</div>
-        <div className="actions"><button className="icon" onClick={() => go('inbox')} aria-label="Staff inbox" title="Staff inbox" style={{ position: 'relative' }}>{Bell}{nInbox > 0 && <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, background: 'var(--bad)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{nInbox > 99 ? '99+' : nInbox}</span>}</button><button className="icon" onClick={cycleTheme} aria-label={'Theme: ' + theme} title={'Theme: ' + theme}>{THEME_ICON[theme]}</button><button className="icon" onClick={refresh} disabled={spin} aria-label="Refresh" style={spin ? { opacity: 0.5 } : undefined}>{Refresh}</button><button className="icon" onClick={() => supabase.auth.signOut()} aria-label="Sign out">{Out}</button></div>
+        <div className="actions" style={{ position: 'relative' }}><button className="icon" onClick={() => go('inbox')} aria-label="Staff inbox" title="Staff inbox" style={{ position: 'relative' }}>{Bell}{nInbox > 0 && <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, background: 'var(--bad)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{nInbox > 99 ? '99+' : nInbox}</span>}</button>
+          <button className="icon" onClick={() => setMenu(!menu)} aria-label="Menu" title="Menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg></button>
+          {menu && <>
+            <div onClick={() => setMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 20 }} />
+            <div className="chartcard" style={{ position: 'absolute', right: 0, top: 44, zIndex: 21, minWidth: 170, display: 'grid', gap: 4, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
+              <button className="ghost sm" style={{ textAlign: 'left' }} onClick={() => { cycleTheme(); setMenu(false) }}>Theme: {theme}</button>
+              <button className="ghost sm" style={{ textAlign: 'left' }} disabled={spin} onClick={() => { refresh(); setMenu(false) }}>Refresh data</button>
+              <button className="ghost sm" style={{ textAlign: 'left' }} onClick={() => supabase.auth.signOut()}>Sign out</button>
+            </div></>}</div>
       </header>
       {err && <p className="error pad">{err}</p>}
       <section className="kpis">
         {K ? K.map(([c, l, v, s, t]) => <button key={l} className={'kpi ' + c} onClick={() => go(t, c === 'k1' ? 'recv' : c === 'k2' ? 'pay' : undefined)}><span>{l}</span><b>{v}</b><small>{s}</small></button>)
           : [0, 1, 2, 3].map((i) => <div key={i} className="kpi sk" />)}
       </section>
+      {(nInbox > 0 || nCol > 0 || nTmp > 0) && (
+        <section><h2 className="h2">Needs your attention</h2>
+          <div className="chartcard" style={{ display: 'grid', gap: 6 }}>
+            {nInbox > 0 && <button className="ghost sm" style={{ textAlign: 'left' }} onClick={() => go('inbox')}>{nInbox} item(s) waiting in the staff inbox</button>}
+            {nTmp > 0 && <button className="ghost sm" style={{ textAlign: 'left' }} onClick={() => go('temp')}>{nTmp} temporary bill(s) to be billed</button>}
+            {nCol > 0 && <button className="ghost sm" style={{ textAlign: 'left' }} onClick={() => go('col')}>{nCol} collection(s) to enter</button>}
+          </div></section>)}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('temp')}>Temporary bill</button>
-        <button className="ghost" style={{ margin: 0 }} onClick={() => go('col')}>Collections{nCol > 0 ? ' (' + nCol + ' to enter)' : ''}</button>
-        <button className="ghost" style={{ margin: 0 }} onClick={() => go('bill')}>Share a bill</button>
-        <button className="ghost" style={{ margin: 0 }} onClick={() => go('att')}>Mark attendance</button>
+        <button className="ghost" style={{ margin: 0 }} onClick={() => go('col')}>Collections</button>
         <button className="ghost" style={{ margin: 0 }} onClick={() => go('exp')}>Expenses</button>
-        <button className="ghost" style={{ margin: 0 }} onClick={() => go('week')}>Weekly summary</button>
-        <button className="ghost" style={{ margin: 0 }} onClick={() => go('act')}>Activity log</button>
+        <button className="ghost" style={{ margin: 0 }} onClick={() => go('att')}>Mark attendance</button>
       </div>
+      <button className="ghost sm" style={{ marginTop: 8 }} onClick={() => setMore(!more)}>{more ? 'Fewer options' : 'More options'}</button>
+      {more && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+          <button className="ghost" style={{ margin: 0 }} onClick={() => go('bill')}>Share a bill</button>
+          <button className="ghost" style={{ margin: 0 }} onClick={() => go('week')}>Weekly summary</button>
+          <button className="ghost" style={{ margin: 0 }} onClick={() => go('act')}>Activity log</button>
+        </div>)}
       {d && d.day && (
         <section><h2 className="h2">Latest day · {new Date(d.day.dy).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</h2>
           <div className="minis">
@@ -374,7 +397,7 @@ function Shell() {
     <>
       {(off || stale) && <div className="offbar">{off ? 'Offline: showing last saved data' : 'Could not reach the server: showing last saved data'}</div>}
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 24</div>
+      <div className="ver">Build 25</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['parties', 'Parties'], ['insights', 'Insights'], ['staff', 'Staff']].map(([k, l]) => (
           <button key={k} className={tab === k || (k === 'staff' && (tab === 'att' || tab === 'stats')) ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>

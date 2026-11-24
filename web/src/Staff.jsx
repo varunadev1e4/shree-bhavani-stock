@@ -205,7 +205,8 @@ export default function Staff({ back, go }) {
   return (
     <div className="app">
       <header className="top"><div><button className="ghost sm" onClick={back}>Back</button><h1 className="h1" style={{ marginTop: 8 }}>Staff</h1></div>
-        <div style={{ display: 'flex', gap: 6 }}>{go && <button className="ghost sm" onClick={() => go('stats')}>Analytics</button>}{go && <button className="ghost sm" onClick={() => go('att')}>Attendance</button>}<button className="ghost sm" onClick={() => setForm({ name: '', role: '', phone: '', salary: '', join_date: '', active: true })}>+ Add</button></div></header>
+        <button className="ghost sm" onClick={() => setForm({ name: '', role: '', phone: '', salary: '', join_date: '', active: true })}>+ Add</button></header>
+      {go && <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}><button className="qc on">People</button><button className="qc" onClick={() => go('att')}>Attendance</button><button className="qc" onClick={() => go('stats')}>Analytics</button></div>}
       <MonthPick ym={ym} onChange={setYm} />
       {err && <p className="error pad">{err}</p>}
       {!emps && <p className="muted pad">Loading...</p>}
