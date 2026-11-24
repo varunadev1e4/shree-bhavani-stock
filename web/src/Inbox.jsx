@@ -282,7 +282,8 @@ function Counts() {
 
 // ---------- bills with no delivery tag yet ----------
 const fyOf = (d) => String(Number(d.slice(0, 4)) - (Number(d.slice(5, 7)) < 4 ? 1 : 0))
-const key = (no, d) => String(no).trim().toUpperCase() + '|' + fyOf(d)
+const addMonths = (s, n) => { const x = new Date(s + 'T00:00:00'); x.setMonth(x.getMonth() + n); return iso(x) }
+const norm = (no) => String(no || '').replace(/\s+/g, '').toUpperCase()
 function FollowUp({ emps, onChange }) {
   const [days, setDays] = useState(7)
   const [creditOnly, setCreditOnly] = useState(false)
@@ -293,24 +294,26 @@ function FollowUp({ emps, onChange }) {
     const from = iso(new Date(Date.now() - days * 864e5))
     const [h, t, k] = await Promise.all([
       supabase.from('bill_heads').select('feed_no,party,net,d,typ,city').gte('d', from).order('d', { ascending: false }).limit(1000),
-      supabase.from('bill_tags').select('bill_no,fy').gte('d', from),
-      supabase.from('delivery_skip').select('bill_no,fy').gte('created_at', from.slice(0, 4) + '-01-01'),
+      supabase.from('bill_tags').select('bill_no').gte('created_at', addMonths(from, -2)).limit(5000),
+      supabase.from('delivery_skip').select('bill_no').gte('created_at', addMonths(from, -2)).limit(5000),
     ])
     if (h.error) { showMsg(h.error.message); return setRows([]) }
     if (k.error) showMsg(k.error.message + ' (run migration-27.sql in Supabase)')
-    const done = new Set([...(t.data || []), ...(k.data || [])].map((x) => String(x.bill_no).trim().toUpperCase() + '|' + x.fy))
-    setRows(h.data.filter((x) => x.feed_no && !done.has(key(x.feed_no, x.d))))
+    if (t.error) showMsg('Could not read delivery tags: ' + t.error.message)
+    // Match on the bill number alone (spaces and capitals ignored). The list only looks back a few weeks, so the same number from another year cannot clash.
+    const done = new Set([...(t.data || []), ...(k.data || [])].map((x) => norm(x.bill_no)))
+    setRows(h.data.filter((x) => x.feed_no && !done.has(norm(x.feed_no))))
   }, [days])
   useEffect(() => { load() }, [load])
   const list = (rows || []).filter((r) => !creditOnly || r.typ === 'Credit')
   const assign = async (r) => {
     const emp = pick[r.feed_no]; if (!emp) return showMsg('Choose who delivered it.')
-    const { error } = await supabase.from('bill_tags').insert({ emp_id: Number(emp), bill_no: String(r.feed_no).trim().toUpperCase(), fy: fyOf(r.d), d: r.d })
+    const { error } = await supabase.from('bill_tags').insert({ emp_id: Number(emp), bill_no: norm(r.feed_no), fy: fyOf(r.d), d: iso(new Date()) })
     if (error) return showMsg(error.message)
     load(); onChange && onChange()
   }
   const skip = async (r) => {
-    const { error } = await supabase.from('delivery_skip').insert({ bill_no: String(r.feed_no).trim().toUpperCase(), fy: fyOf(r.d) })
+    const { error } = await supabase.from('delivery_skip').insert({ bill_no: norm(r.feed_no), fy: fyOf(r.d) })
     if (error) return showMsg(error.message + ' (run migration-27.sql)')
     load()
   }
