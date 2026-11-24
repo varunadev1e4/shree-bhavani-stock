@@ -5,6 +5,7 @@ import ExportBar from './Export'
 import MonthPick, { curYm, ymName } from './MonthPick'
 import { askConfirm, askPrompt, showMsg } from './dialog'
 import { iso, dm, span, money } from './expcommon'
+import ActivityLog from './ActivityLog'
 import { pushSupported, pushOn, enablePush, disablePush } from './push'
 
 // Owner's inbox for everything employees send: fund requests, reports and suggestions, return notes,
@@ -279,6 +280,65 @@ function Counts() {
     </>)
 }
 
+// ---------- bills with no delivery tag yet ----------
+const fyOf = (d) => String(Number(d.slice(0, 4)) - (Number(d.slice(5, 7)) < 4 ? 1 : 0))
+const key = (no, d) => String(no).trim().toUpperCase() + '|' + fyOf(d)
+function FollowUp({ emps, onChange }) {
+  const [days, setDays] = useState(7)
+  const [creditOnly, setCreditOnly] = useState(false)
+  const [rows, setRows] = useState(null)
+  const [pick, setPick] = useState({})
+  const load = useCallback(async () => {
+    setRows(null)
+    const from = iso(new Date(Date.now() - days * 864e5))
+    const [h, t, k] = await Promise.all([
+      supabase.from('bill_heads').select('feed_no,party,net,d,typ,city').gte('d', from).order('d', { ascending: false }).limit(1000),
+      supabase.from('bill_tags').select('bill_no,fy').gte('d', from),
+      supabase.from('delivery_skip').select('bill_no,fy').gte('created_at', from.slice(0, 4) + '-01-01'),
+    ])
+    if (h.error) { showMsg(h.error.message); return setRows([]) }
+    if (k.error) showMsg(k.error.message + ' (run migration-27.sql in Supabase)')
+    const done = new Set([...(t.data || []), ...(k.data || [])].map((x) => String(x.bill_no).trim().toUpperCase() + '|' + x.fy))
+    setRows(h.data.filter((x) => x.feed_no && !done.has(key(x.feed_no, x.d))))
+  }, [days])
+  useEffect(() => { load() }, [load])
+  const list = (rows || []).filter((r) => !creditOnly || r.typ === 'Credit')
+  const assign = async (r) => {
+    const emp = pick[r.feed_no]; if (!emp) return showMsg('Choose who delivered it.')
+    const { error } = await supabase.from('bill_tags').insert({ emp_id: Number(emp), bill_no: String(r.feed_no).trim().toUpperCase(), fy: fyOf(r.d), d: r.d })
+    if (error) return showMsg(error.message)
+    load(); onChange && onChange()
+  }
+  const skip = async (r) => {
+    const { error } = await supabase.from('delivery_skip').insert({ bill_no: String(r.feed_no).trim().toUpperCase(), fy: fyOf(r.d) })
+    if (error) return showMsg(error.message + ' (run migration-27.sql)')
+    load()
+  }
+  const build = () => ({ title: 'Bills not yet marked delivered', subtitle: 'Last ' + days + ' days' + (creditOnly ? ' | credit only' : ''), filename: 'undelivered-bills', columns: ['Date', 'Bill', 'Customer', 'Type', 'Amount'],
+    rows: list.map((r) => [dm(r.d), r.feed_no, r.party || '', r.typ || '', money(r.net)]), numCols: [4] })
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <h2 className="h2">Not yet delivered</h2>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+        {[3, 7, 14, 30].map((n) => <button key={n} className={'qc' + (days === n ? ' on' : '')} onClick={() => setDays(n)}>{n} days</button>)}
+        <button className={'qc' + (creditOnly ? ' on' : '')} onClick={() => setCreditOnly(!creditOnly)}>Credit only</button>
+      </div>
+      {!rows && <p className="muted small">Loading...</p>}
+      {rows && !list.length && <div className="empty"><b>Every bill is tagged or marked "no delivery needed"</b></div>}
+      {list.length > 0 && <p className="muted small">{list.length} bills, {rs(list.reduce((s, r) => s + Number(r.net || 0), 0))}. Bills appear here after the sync brings them in.</p>}
+      {list.length > 0 && <ExportBar build={build} />}
+      {list.slice(0, 150).map((r) => (
+        <div key={r.feed_no + r.d} className="chartcard" style={{ marginBottom: 6, display: 'grid', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span><b>{r.feed_no}</b> <span className="muted small">{dm(r.d)} | {r.typ || ''}</span><br /><span className="muted small">{r.party}{r.city ? ', ' + r.city : ''}</span></span><b>{rs(r.net)}</b></div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select {...inp} style={{ flex: 1 }} value={pick[r.feed_no] || ''} onChange={(e) => setPick({ ...pick, [r.feed_no]: e.target.value })}><option value="">Delivered by...</option>{emps.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select>
+            <button className="ghost sm" onClick={() => assign(r)}>Assign</button>
+            <button className="ghost sm" onClick={() => skip(r)}>No delivery</button>
+          </div>
+        </div>))}
+    </div>)
+}
+
 // ---------- delivered bills ----------
 function Deliveries() {
   const [ym, setYm] = useState(curYm())
@@ -308,6 +368,8 @@ function Deliveries() {
     rows: list.map((t) => { const h = heads[t.bill_no]; return [dm(t.d), t.bill_no, h ? h.party : '', h ? money(h.net) : '', name(t.emp_id)] }), numCols: [3] })
   return (
     <>
+      <FollowUp emps={emps} onChange={() => setYm((v) => v)} />
+      <h2 className="h2">Delivered</h2>
       <MonthPick ym={ym} onChange={setYm} />
       {!tags && <p className="muted pad">Loading...</p>}
       {tags && !tags.length && <div className="empty"><b>No bills tagged in {ymName(ym)}</b></div>}
@@ -322,7 +384,7 @@ function Deliveries() {
     </>)
 }
 
-const TABS = [['req', 'Requests', Requests], ['rep', 'Reports', Reports], ['ret', 'Returns', Returns], ['task', 'Tasks', Tasks], ['cnt', 'Stock count', Counts], ['del', 'Deliveries', Deliveries]]
+const TABS = [['req', 'Requests', Requests], ['rep', 'Reports', Reports], ['ret', 'Returns', Returns], ['task', 'Tasks', Tasks], ['cnt', 'Stock count', Counts], ['del', 'Deliveries', Deliveries], ['act', 'Activity', ActivityLog]]
 export default function Inbox({ back, start }) {
   const [tab, setTab] = useState(start || 'req')
   const [push, setPush] = useState(pushSupported() ? 'ask' : 'none')
