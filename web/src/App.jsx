@@ -301,7 +301,6 @@ function Stock() {
     <div className="app">
       <header className="top">
         <div><h1 className="h1">Stock</h1><div className={'syncpill ' + sync.cls}><i />{sync.text}</div></div>
-        <div className="actions"><button className="icon" onClick={refresh} aria-label="Refresh">{Refresh}</button></div>
       </header>
       <div className="tools">
         <div className="searchbox">
@@ -405,7 +404,7 @@ function Shell() {
       </div>
       <div className="topfix-space" />
       <div key={tab + ':' + rev}>{view}</div>
-      <div className="ver">Build 27</div>
+      <div className="ver">Build 28</div>
       <nav className="tabs">
         {[['home', 'Home'], ['stock', 'Stock'], ['parties', 'Parties'], ['insights', 'Insights'], ['staff', 'Staff']].map(([k, l]) => (
           <button key={k} className={tab === k || (k === 'staff' && (tab === 'att' || tab === 'stats')) ? 'on' : ''} onClick={() => go(k)}>{ICONS[k]}<span>{l}</span></button>

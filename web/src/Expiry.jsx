@@ -54,7 +54,6 @@ export default function Expiry() {
   return (
     <div className="app">
       <header className="top"><strong className="title">Expiry report</strong>
-        <button className="icon" onClick={load} aria-label="Refresh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg></button>
       </header>
       <div className="filters">
         {RANGES.map(([k, l]) => <button key={k} className={'toggle' + (range === k ? ' on' : '')} onClick={() => setRange(k)}>{l}</button>)}

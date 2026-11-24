@@ -116,7 +116,6 @@ export default function Parties({ side: sideProp }) {
   return (
     <div className="app">
       <header className="top"><h1 className="h1">Parties</h1>
-        <div className="actions"><button className="icon" onClick={load} aria-label="Refresh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg></button></div>
       </header>
       <div className="seg" style={{ width: 'fit-content', marginBottom: 12 }}>{[['dues', 'Dues'], ['dir', 'Directory']].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
       <div className="stats">
