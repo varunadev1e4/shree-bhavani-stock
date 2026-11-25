@@ -1,5 +1,6 @@
 // Version history shown in Menu > About. Add a new entry at the TOP every time you change version.js.
 export const CHANGELOG = [
+  { v: 37, d: '25 Nov 2026', t: ['Fix for being asked to log in again after every reload: the phone kept so many offline copies of lists that it had no room left to save the login. Offline copies are now size-limited and cleared automatically when storage is full'] },
   { v: 36, d: '24 Nov 2026', t: ['Change password for owners (Menu > Change password) and employees (Password button on their screen)'] },
   { v: 35, d: '24 Nov 2026', t: ['Fix for being logged out at random: login refreshes are no longer cut short, only one refresh runs at a time, and the login is refreshed when you come back to the app'] },
   { v: 34, d: '24 Nov 2026', t: ['Blister look removed; the app uses the original look again (the Menu > Look option is gone)', 'Bottom menu bar is lighter than the page in dark mode so it is easy to see'] },

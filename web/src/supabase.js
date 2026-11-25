@@ -34,10 +34,32 @@ export async function authLock(name, acquireTimeout, fn) {
   } finally { clearTimeout(t) }
 }
 
+// The app keeps a copy of recent lists in the phone's storage (keys starting "sb:") so it can show them offline. That copy can grow
+// until the storage is full, and then the phone cannot save the LOGIN either, so every reload asks for the password again.
+// So: the copies are limited in size, trimmed when the app starts, and emptied (never the login) whenever storage runs out.
+export function purgeCache() {
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('sb:')) keys.push(k) }
+    keys.forEach((k) => localStorage.removeItem(k))
+  } catch (e) { /* ignore */ }
+}
+try {
+  let total = 0
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('sb:')) total += (localStorage.getItem(k) || '').length }
+  if (total > 1500000) purgeCache()
+} catch (e) { /* ignore */ }
+// Where the login is kept. If storage is full, free the offline copies and try again, so the login is always saved.
+const authStorage = typeof localStorage === 'undefined' ? undefined : {
+  getItem: (k) => localStorage.getItem(k),
+  removeItem: (k) => localStorage.removeItem(k),
+  setItem: (k, v) => { try { localStorage.setItem(k, v) } catch (e) { purgeCache(); localStorage.setItem(k, v) } },
+}
+
 export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
-  { global: { fetch: limitedFetch }, auth: { lock: authLock } }
+  { global: { fetch: limitedFetch }, auth: { lock: authLock, storage: authStorage } }
 )
 
 // When the app is back in front, make sure the login is refreshed right away.

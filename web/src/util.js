@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase, purgeCache } from './supabase'
 
 export const num = (v) => (v == null ? '-' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 }))
 export const rs = (v) => '\u20B9' + Math.round(Number(v) || 0).toLocaleString('en-IN')
@@ -44,10 +44,15 @@ export function backupAge(row) {
 export async function cached(key, fn) {
   try {
     const d = await fn()
-    try { localStorage.setItem('sb:' + key, JSON.stringify(d)) } catch (e) { /* storage full */ }
+    try {
+      const s = JSON.stringify(d)
+      // very large lists are not kept for offline use: they filled the phone's storage and stopped the login being saved
+      if (s.length <= 250000) localStorage.setItem('sb:' + key, s); else localStorage.removeItem('sb:' + key)
+    } catch (e) { purgeCache() /* storage full: free it (the login is never touched) */ }
     return d
   } catch (e) {
-    const s = localStorage.getItem('sb:' + key)
+    let s = null
+    try { s = localStorage.getItem('sb:' + key) } catch (x) { /* ignore */ }
     if (s) { window.dispatchEvent(new Event('sb-stale')); return JSON.parse(s) }
     throw e
   }
