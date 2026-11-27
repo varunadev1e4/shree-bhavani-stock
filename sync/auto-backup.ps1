@@ -20,12 +20,14 @@ try {
   $tmp   = Join-Path $env:TEMP ("pmbk_" + [guid]::NewGuid().ToString("N"))
   New-Item -ItemType Directory -Path $tmp | Out-Null
   Copy-Item $liveFile.FullName $tmp
-  $zip = Join-Path $dest ("{0}_{1}.zip" -f $name, $stamp)
+  # Our own backups end in "_auto.zip" so they can always be told apart from any other zip (for example Profit Maker's own backups)
+  $zip = Join-Path $dest ("{0}_{1}_auto.zip" -f $name, $stamp)
   Compress-Archive -Path (Join-Path $tmp $liveFile.Name) -DestinationPath $zip
   Remove-Item $tmp -Recurse -Force
 
-  Get-ChildItem $dest -Filter "Data*.zip" |
-    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$keepDays) } | Remove-Item -Force
+  # Clean-up removes ONLY our own old "_auto.zip" files. Any other file in the folder is never touched.
+  Get-ChildItem $dest -File -Filter "Data*_auto.zip" |
+    Where-Object { $_.Name -match '^Data\d{4}_\d{8}_\d{6}_auto\.zip$' -and $_.LastWriteTime -lt (Get-Date).AddDays(-$keepDays) } | Remove-Item -Force
   "{0}  OK  {1}" -f (Get-Date -Format s), (Split-Path $zip -Leaf) | Add-Content $log
 }
 catch {
